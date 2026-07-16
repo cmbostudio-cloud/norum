@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>norum - 가상 가산 도박 & 주식 시뮬레이터</title>
+    <!-- Tailwind CSS for sleek utility styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons for premium modern dashboard icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts Inter & Orbitron -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0B0F19;
+            color: #E2E8F0;
+        }
+        .font-digital {
+            font-family: 'Orbitron', sans-serif;
+        }
+        /* Custom scrollbars for dark UI */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #111827;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4B5563;
+        }
+        /* Glow animations */
+        .neon-glow-green {
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
+        }
+        .neon-glow-red {
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.2);
+        }
+        .neon-glow-gold {
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.3);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col overflow-x-hidden">
+
+    <script>
+        // Minimal sound effects system using Web Audio API to prevent heavy asset issues
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+            }
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+            playTone(freq, type, duration, vol = 0.1) {
+                this.init();
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.00001, this.ctx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch (e) {
+                    console.log("Audio play blocked or unsupported");
+                }
+            }
+            buy() {
+                this.playTone(523.25, 'sine', 0.15, 0.15); // C5
+                setTimeout(() => this.playTone(659.25, 'sine', 0.2, 0.15), 80); // E5
+            }
+            sell() {
+                this.playTone(587.33, 'sine', 0.15, 0.15); // D5
+                setTimeout(() => this.playTone(493.88, 'sine', 0.25, 0.15), 80); // B4
+            }
+            win() {
+                this.playTone(523.25, 'triangle', 0.1, 0.2);
+                setTimeout(() => this.playTone(659.25, 'triangle', 0.1, 0.2), 80);
+                setTimeout(() => this.playTone(783.99, 'triangle', 0.1, 0.2), 160);
+                setTimeout(() => this.playTone(1046.50, 'triangle', 0.3, 0.25), 240); // High C
+            }
+            lose() {
+                this.playTone(293.66, 'sawtooth', 0.2, 0.15); // D4
+                setTimeout(() => this.playTone(220.00, 'sawtooth', 0.4, 0.15), 150); // A3
+            }
+            tick() {
+                this.playTone(800, 'sine', 0.03, 0.05);
+            }
+        }
+        const sfx = new SoundFX();
+    </script>
+
+    <!-- Header -->
+    <header class="border-b border-gray-800 bg-[#0F172A] px-6 py-4 flex flex-wrap justify-between items-center gap-4 sticky top-0 z-50">
+        <div class="flex items-center gap-3">
+            <div class="bg-gradient-to-tr from-amber-500 to-yellow-400 p-2.5 rounded-xl shadow-lg shadow-amber-500/20">
+                <i data-lucide="coins" class="w-6 h-6 text-slate-950"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-extrabold tracking-wider bg-gradient-to-r from-amber-400 via-yellow-300 to-emerald-400 bg-clip-text text-transparent font-digital">norum</h1>
+                <p class="text-xs text-gray-400 font-semibold tracking-wide">비공식 가상 화폐 도박판 v1.2</p>
+            </div>
+        </div>
+
+        <!-- Coins and Portfolio stats bar -->
+        <div class="flex items-center gap-6">
+            <div class="bg-[#1E293B] border border-gray-700/60 rounded-xl px-4 py-2 flex items-center gap-3">
+                <div class="bg-amber-500/20 p-1.5 rounded-lg text-amber-400">
+                    <i data-lucide="wallet" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <p class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">보유 코인</p>
+                    <p id="global-coins" class="text-lg font-black text-amber-400 font-digital">1,000,000</p>
+                </div>
+            </div>
+            
+            <div class="bg-[#1E293B] border border-gray-700/60 rounded-xl px-4 py-2 flex items-center gap-3">
+                <div class="bg-emerald-500/20 p-1.5 rounded-lg text-emerald-400">
+                    <i data-lucide="trending-up" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <p class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">총 자산 가치</p>
+                    <p id="global-networth" class="text-lg font-black text-emerald-400 font-digital">1,000,000</p>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Breaking News Ticker -->
+    <div class="bg-amber-950/40 border-b border-amber-900/40 px-6 py-2 overflow-hidden whitespace-nowrap relative flex items-center">
+        <div class="bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider animate-pulse flex items-center gap-1 shrink-0 z-10 mr-4">
+            <span class="w-1.5 h-1.5 bg-white rounded-full animate-ping"></span>속보
+        </div>
+        <div class="w-full relative overflow-hidden h-5">
+            <div id="news-ticker" class="absolute left-0 top-0 transition-transform duration-500 text-sm text-amber-200 font-semibold truncate w-full">
+                시장 감시 위원회: "최근 개미지옥 테크 주가의 비정상적 폭등세를 밀착 감시 중입니다..."
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Shell -->
+    <div class="flex-1 flex flex-col md:flex-row">
+        <!-- Sidebar Menu -->
+        <aside class="w-full md:w-64 bg-[#0F172A] border-r border-gray-800 p-4 flex md:flex-col gap-2 md:gap-4 justify-around md:justify-start overflow-x-auto shrink-0">
+            <p class="hidden md:block text-xs font-bold text-gray-500 uppercase px-3 tracking-widest mt-2">MAIN NAVI</p>
+            
+            <button onclick="switchTab('tab-stock')" id="btn-tab-stock" class="flex-1 md:flex-none flex items-center justify-center md:justify-start gap-3 px-4 py-3 rounded-xl text-emerald-400 bg-emerald-950/20 border border-emerald-800/30 transition font-bold text-sm">
+                <i data-lucide="candlestick-chart" class="w-5 h-5"></i>
+                <span class="hidden sm:inline">주식 거래소</span>
+            </button>
+            
+            <button onclick="switchTab('tab-casino')" id="btn-tab-casino" class="flex-1 md:flex-none flex items-center justify-center md:justify-start gap-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-gray-800/30 transition font-bold text-sm">
+                <i data-lucide="dices" class="w-5 h-5 text-amber-500"></i>
+                <span class="hidden sm:inline">노름 카지노</span>
+            </button>
+            
+            <button onclick="switchTab('tab-portfolio')" id="btn-tab-portfolio" class="flex-1 md:flex-none flex items-center justify-center md:justify-start gap-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-gray-800/30 transition font-bold text-sm">
+                <i data-lucide="briefcase" class="w-5 h-5"></i>
+                <span class="hidden sm:inline">나의 투자 포트</span>
+            </button>
+
+            <div class="hidden md:block mt-auto border-t border-gray-800 pt-4">
+                <div class="bg-[#1E293B]/50 p-4 rounded-xl border border-gray-800">
+                    <p class="text-xs font-bold text-gray-400 mb-2">💡 미세 팁</p>
+                    <p class="text-[11px] text-gray-500 leading-relaxed">
+                        실시간 속보 뉴스창을 매의 눈으로 주시하세요! 호재/악재 뉴스가 뜨면 주가가 곧바로 요동칩니다. 낚시성 찌라시도 존재하니 현명하게 배팅하세요!
+                    </p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Workspace -->
+        <main class="flex-1 p-4 md:p-6 overflow-y-auto">
+            <!-- TAB: Stock Market -->
+            <div id="tab-stock" class="tab-content space-y-6">
+                <!-- Grid: Stock list + Interactive Live Chart -->
+                <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+                    
+                    <!-- Left Column: Stocks Terminal List (5 cols) -->
+                    <div class="xl:col-span-5 bg-[#0F172A] border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
+                        <div class="flex justify-between items-center pb-2 border-b border-gray-800">
+                            <h3 class="text-base font-bold text-gray-300 flex items-center gap-2">
+                                <i data-lucide="list" class="w-4 h-4 text-emerald-500"></i>
+                                상장 종목 모니터
+                            </h3>
+                            <span class="text-[11px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-semibold animate-pulse flex items-center gap-1">
+                                <span class="w-1 h-1 bg-emerald-400 rounded-full"></span>실시간 송출중
+                            </span>
+                        </div>
+                        
+                        <!-- Stocks Loop -->
+                        <div id="stock-list-container" class="space-y-3">
+                            <!-- Stock Cards injected dynamically by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Live Trading Chart & Engine (7 cols) -->
+                    <div class="xl:col-span-7 bg-[#0F172A] border border-gray-800 rounded-2xl p-5 flex flex-col justify-between min-h-[480px]">
+                        <div>
+                            <div class="flex flex-wrap justify-between items-start gap-4 mb-4">
+                                <div class="flex items-center gap-3">
+                                    <span id="active-stock-symbol" class="bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-1 rounded-lg font-bold border border-emerald-500/20">SAM</span>
+                                    <div>
+                                        <h2 id="active-stock-name" class="text-xl font-bold">삼성노름</h2>
+                                        <p id="active-stock-desc" class="text-xs text-gray-400">시총 1위의 든든한 안정 종목</p>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <p id="active-stock-price" class="text-2xl font-black font-digital text-emerald-400">₩ 15,200</p>
+                                    <p id="active-stock-change" class="text-xs font-semibold text-emerald-500">+1.25% (▲ ₩180)</p>
+                                </div>
+                            </div>
+
+                            <!-- Responsive Canvas Container -->
+                            <div class="relative w-full h-56 bg-slate-950/70 border border-slate-900 rounded-xl overflow-hidden p-2">
+                                <canvas id="stock-chart" class="w-full h-full block"></canvas>
+                                <div id="chart-tooltip" class="absolute hidden bg-slate-900/90 border border-slate-700 p-2 rounded text-xs pointer-events-none z-10 shadow-lg"></div>
+                            </div>
+                        </div>
+
+                        <!-- Trading Action Panel -->
+                        <div class="mt-6 pt-4 border-t border-gray-800">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                                <div>
+                                    <div class="flex justify-between text-xs font-semibold mb-2">
+                                        <span class="text-gray-400">주문 수량 입력</span>
+                                        <span class="text-gray-400">최대 매수 가능: <strong id="max-buy-count" class="text-amber-400">0</strong> 주</span>
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <input type="number" id="trade-amount" min="1" value="10" oninput="calculateTradeEstimate()" class="w-full bg-slate-950 border border-gray-800 rounded-xl px-4 py-2.5 text-center text-lg font-bold font-digital focus:outline-none focus:border-amber-500 text-amber-400">
+                                        <button onclick="setTradePercent(25)" class="text-xs bg-slate-800 hover:bg-slate-700 px-2 rounded-lg font-bold">25%</button>
+                                        <button onclick="setTradePercent(50)" class="text-xs bg-slate-800 hover:bg-slate-700 px-2 rounded-lg font-bold">50%</button>
+                                        <button onclick="setTradePercent(100)" class="text-xs bg-slate-800 hover:bg-slate-700 px-2 rounded-lg font-bold">MAX</button>
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-2 text-center md:text-left">
+                                        예상 총 금액: <span id="trade-estimate" class="font-digital font-semibold text-gray-300">0</span> 코인
+                                    </p>
+                                </div>
+                                <div class="flex gap-4">
+                                    <button onclick="executeTrade('BUY')" class="flex-1 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-slate-950 font-extrabold py-3.5 px-6 rounded-xl shadow-lg shadow-emerald-950/30 transition duration-150 transform active:scale-95 flex flex-col items-center justify-center">
+                                        <span class="text-sm tracking-widest uppercase">풀매수</span>
+                                        <span class="text-[10px] font-medium opacity-80">(지정가 구입)</span>
+                                    </button>
+                                    <button onclick="executeTrade('SELL')" class="flex-1 bg-gradient-to-r from-rose-600 to-pink-500 hover:from-rose-500 hover:to-pink-400 text-white font-extrabold py-3.5 px-6 rounded-xl shadow-lg shadow-rose-950/30 transition duration-150 transform active:scale-95 flex flex-col items-center justify-center">
+                                        <span class="text-sm tracking-widest uppercase">분할 매도</span>
+                                        <span class="text-[10px] font-medium opacity-80">(보유 수량 청산)</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: Casino (Norum Games) -->
+            <div id="tab-casino" class="tab-content hidden space-y-6">
+                <div class="max-w-4xl mx-auto">
+                    <!-- Heading -->
+                    <div class="text-center mb-8">
+                        <h2 class="text-3xl font-black tracking-wider bg-gradient-to-r from-amber-400 to-yellow-300 bg-clip-text text-transparent font-digital">NORUM VIP CASINO</h2>
+                        <p class="text-sm text-gray-400 mt-1">인생 한 방! 가상 코인을 신속하게 불려 보십시오.</p>
+                    </div>
+
+                    <!-- Grid of Games -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        
+                        <!-- Mini Game 1: High-Low Game -->
+                        <div class="bg-[#0F172A] border border-gray-800 rounded-2xl p-5 flex flex-col justify-between hover:border-amber-500/40 transition">
+                            <div>
+                                <div class="flex justify-between items-center mb-4">
+                                    <span class="bg-amber-500/10 text-amber-400 text-xs font-bold px-2.5 py-1 rounded border border-amber-500/20">CARD</span>
+                                    <i data-lucide="dices" class="w-5 h-5 text-amber-400"></i>
+                                </div>
+                                <h3 class="text-lg font-bold mb-1">하이앤로우 (High-Low)</h3>
+                                <p class="text-xs text-gray-400 mb-4">공개된 카드(A~K)보다 다음에 뽑힐 카드가 높을지 낮을지 맞추는 배당 도박.</p>
+                                
+                                <div class="bg-slate-950/60 rounded-xl p-4 flex flex-col items-center justify-center gap-2 mb-4 border border-slate-900">
+                                    <div class="text-xs text-slate-500">현재 오픈된 카드</div>
+                                    <div id="hl-card-display" class="w-16 h-24 bg-gradient-to-tr from-slate-800 to-slate-900 border border-gray-700 rounded-xl flex flex-col items-center justify-center text-2xl font-black font-digital text-red-500 shadow-lg">
+                                        ♥ 7
+                                    </div>
+                                    <div id="hl-status" class="text-xs font-semibold text-amber-400">연승 성공 시 배당 1.8x 누적</div>
+                                </div>
+                            </div>
+                            
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider block mb-1">배팅 코인 입력</label>
+                                    <input id="hl-bet" type="number" min="1000" value="10000" class="w-full bg-slate-950 border border-gray-800 rounded-xl px-3 py-2 text-center font-bold text-amber-400 focus:outline-none">
+                                </div>
+                                <div class="flex gap-2">
+                                    <button onclick="playHighLow('HIGH')" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black py-2.5 rounded-xl text-xs transition uppercase">더 높음 (HIGH)</button>
+                                    <button onclick="playHighLow('LOW')" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-black py-2.5 rounded-xl text-xs transition uppercase">더 낮음 (LOW)</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Mini Game 2: Double or Nothing (Coin Flip) -->
+                        <div class="bg-[#0F172A] border border-gray-800 rounded-2xl p-5 flex flex-col justify-between hover:border-amber-500/40 transition">
+                            <div>
+                                <div class="flex justify-between items-center mb-4">
+                                    <span class="bg-emerald-500/10 text-emerald-400 text-xs font-bold px-2.5 py-1 rounded border border-emerald-500/20">COIN FLIP</span>
+                                    <i data-lucide="circle-dot" class="w-5 h-5 text-emerald-400"></i>
+                                </div>
+                                <h3 class="text-lg font-bold mb-1">코인 동전 앞뒤 던지기</h3>
+                                <p class="text-xs text-gray-400 mb-4">50%의 순수한 기적! 앞면을 맞추면 2배 지급, 틀리면 기부.</p>
+                                
+                                <div class="bg-slate-950/60 rounded-xl p-4 flex flex-col items-center justify-center gap-2 mb-4 border border-slate-900 min-h-[140px]">
+                                    <!-- Rotating Simulated Coin representation -->
+                                    <div id="coin-visual" class="w-16 h-16 rounded-full bg-gradient-to-tr from-yellow-500 via-amber-400 to-yellow-500 border-4 border-yellow-300 flex items-center justify-center text-slate-950 text-2xl font-black font-digital shadow-lg shadow-yellow-500/10">
+                                        앞
+                                    </div>
+                                    <div id="coin-status" class="text-xs font-semibold text-gray-400 mt-1">배팅 후 앞/뒤를 선택하세요</div>
+                                </div>
+                            </div>
+                            
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider block mb-1">배팅 코인 입력</label>
+                                    <input id="coin-bet" type="number" min="1000" value="50000" class="w-full bg-slate-950 border border-gray-800 rounded-xl px-3 py-2 text-center font-bold text-amber-400 focus:outline-none">
+                                </div>
+                                <div class="flex gap-2">
+                                    <button onclick="playCoinFlip('HEADS')" class="flex-1 bg-yellow-500 hover:bg-yellow-400 text-slate-950 font-black py-2.5 rounded-xl text-xs transition">앞면 걸기</button>
+                                    <button onclick="playCoinFlip('TAILS')" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-black py-2.5 rounded-xl text-xs transition">뒷면 걸기</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Mini Game 3: Cyberpunk Slot Machine -->
+                        <div class="bg-[#0F172A] border border-gray-800 rounded-2xl p-5 flex flex-col justify-between hover:border-amber-500/40 transition">
+                            <div>
+                                <div class="flex justify-between items-center mb-4">
+                                    <span class="bg-purple-500/10 text-purple-400 text-xs font-bold px-2.5 py-1 rounded border border-purple-500/20">SLOTS</span>
+                                    <i data-lucide="gamepad-2" class="w-5 h-5 text-purple-400"></i>
+                                </div>
+                                <h3 class="text-lg font-bold mb-1">사이버 슬롯머신</h3>
+                                <p class="text-xs text-gray-400 mb-4">세 칸의 이모지가 전부 일치하면 최소 10배에서 50배의 잭팟을 터뜨립니다!</p>
+                                
+                                <div class="bg-slate-950/60 rounded-xl p-4 flex flex-col items-center justify-center gap-3 mb-4 border border-slate-900">
+                                    <div class="flex gap-3 justify-center">
+                                        <div id="slot-1" class="w-12 h-16 bg-slate-900 border border-gray-800 rounded-xl flex items-center justify-center text-3xl shadow-inner font-digital">💎</div>
+                                        <div id="slot-2" class="w-12 h-16 bg-slate-900 border border-gray-800 rounded-xl flex items-center justify-center text-3xl shadow-inner font-digital">🍒</div>
+                                        <div id="slot-3" class="w-12 h-16 bg-slate-900 border border-gray-800 rounded-xl flex items-center justify-center text-3xl shadow-inner font-digital">🍋</div>
+                                    </div>
+                                    <div id="slot-status" class="text-xs font-semibold text-purple-400">3개 일치 시 50배 잭팟!</div>
+                                </div>
+                            </div>
+                            
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider block mb-1">배팅 코인 입력</label>
+                                    <input id="slot-bet" type="number" min="5000" value="10000" class="w-full bg-slate-950 border border-gray-800 rounded-xl px-3 py-2 text-center font-bold text-amber-400 focus:outline-none">
+                                </div>
+                                <button onclick="spinSlots()" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold py-3 rounded-xl text-xs tracking-widest transition uppercase shadow-md shadow-purple-950/40">레버 당기기 (SPIN)</button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: Portfolio Manager -->
+            <div id="tab-portfolio" class="tab-content hidden space-y-6">
+                <div class="max-w-4xl mx-auto">
+                    <!-- Dashboard Statistics Card -->
+                    <div class="bg-[#0F172A] border border-gray-800 rounded-2xl p-6">
+                        <h2 class="text-xl font-bold mb-6 flex items-center gap-2">
+                            <i data-lucide="pie-chart" class="w-5 h-5 text-emerald-500"></i>
+                            자산 현황 요약 리포트
+                        </h2>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                            <div class="bg-slate-950/70 p-4 rounded-xl border border-slate-900">
+                                <p class="text-xs text-gray-400 font-semibold mb-1">가용 현금 코인</p>
+                                <p id="port-cash" class="text-2xl font-black font-digital text-amber-400">1,000,000</p>
+                            </div>
+                            <div class="bg-slate-950/70 p-4 rounded-xl border border-slate-900">
+                                <p class="text-xs text-gray-400 font-semibold mb-1">보유 주식 평가액</p>
+                                <p id="port-stocks" class="text-2xl font-black font-digital text-emerald-400">0</p>
+                            </div>
+                            <div class="bg-slate-950/70 p-4 rounded-xl border border-slate-900">
+                                <p class="text-xs text-gray-400 font-semibold mb-1">누적 도박/투자 수익률</p>
+                                <p id="port-return" class="text-2xl font-black font-digital text-emerald-400">+0.0%</p>
+                            </div>
+                        </div>
+
+                        <!-- Holding stock assets table -->
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-sm text-gray-400">
+                                <thead class="text-xs uppercase bg-slate-900 text-gray-300 font-bold border-b border-gray-800">
+                                    <tr>
+                                        <th class="px-6 py-4 rounded-l-xl">종목명</th>
+                                        <th class="px-6 py-4">보유 수량</th>
+                                        <th class="px-6 py-4">평균 매수가</th>
+                                        <th class="px-6 py-4">현재가</th>
+                                        <th class="px-6 py-4">평가금액</th>
+                                        <th class="px-6 py-4 rounded-r-xl">수익률</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="portfolio-table-body" class="divide-y divide-gray-800/50">
+                                    <!-- Table Rows injected Dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Custom Modal/Toast UI for safety instead of alerts -->
+    <div id="custom-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-[#0F172A] border border-gray-800 rounded-2xl max-w-sm w-full p-6 mx-4 shadow-2xl relative transform scale-95 transition-transform duration-300" id="modal-container">
+            <div id="modal-icon-bg" class="w-12 h-12 rounded-full mx-auto flex items-center justify-center mb-4">
+                <i id="modal-icon" data-lucide="info" class="w-6 h-6"></i>
+            </div>
+            <h3 id="modal-title" class="text-lg font-black text-center mb-2">알림</h3>
+            <p id="modal-message" class="text-sm text-gray-400 text-center leading-relaxed mb-6">메시지 내용</p>
+            <button onclick="closeModal()" class="w-full bg-slate-800 hover:bg-slate-700 font-bold py-2.5 rounded-xl transition">닫기</button>
+        </div>
+    </div>
+
+    <!-- Application Logic & Simulation Engine -->
+    <script>
+        // Game State
+        const state = {
+            coins: 1000000,
+            initialCoins: 1000000,
+            activeTab: 'tab-stock',
+            selectedStockId: 'SAM',
+            stocks: {
+                'SAM': {
+                    name: '삼성노름 (SAM)',
+                    desc: '우량 가전/소자 반도체 주식. 매우 안전하지만 묵직하게 올라갑니다.',
+                    price: 15000,
+                    history: Array.from({length: 30}, () => 14000 + Math.random() * 2000),
+                    volatility: 0.015,
+                    bias: 0.002, // slight upward bias
+                    owned: 0,
+                    buyPriceSum: 0,
+                },
+                'ANT': {
+                    name: '개미지옥 테크 (ANT)',
+                    desc: '유명 밈 주식. 작전 세력이 상주하며 하루아침에 대박 혹은 알거지가 됩니다.',
+                    price: 3500,
+                    history: Array.from({length: 30}, () => 2500 + Math.random() * 2000),
+                    volatility: 0.08,
+                    bias: 0.001,
+                    owned: 0,
+                    buyPriceSum: 0,
+                },
+                'DOG': {
+                    name: '도지놀이 코인 (DOG)',
+                    desc: '실시간 가상 자산. 일론 놀음머스크의 한마디 트윗에 우주로 갑니다.',
+                    price: 800,
+                    history: Array.from({length: 30}, () => 600 + Math.random() * 400),
+                    volatility: 0.05,
+                    bias: 0.0,
+                    owned: 0,
+                    buyPriceSum: 0,
+                },
+                'GOL': {
+                    name: '골드만삭쓰 (GOL)',
+                    desc: '국제 금융 파생기관. 거시경제 뉴스에 굉장히 예민하게 반응합니다.',
+                    price: 45000,
+                    history: Array.from({length: 30}, () => 43000 + Math.random() * 4000),
+                    volatility: 0.02,
+                    bias: 0.003,
+                    owned: 0,
+                    buyPriceSum: 0,
+                },
+                'BIO': {
+                    name: '바이오헤븐 (BIO)',
+                    desc: '암 치료 보조제 임상 통과 소식이 전해지거나 가짜약 판명 시 상폐 직전까지 밀립니다.',
+                    price: 8500,
+                    history: Array.from({length: 30}, () => 7000 + Math.random() * 3000),
+                    volatility: 0.09,
+                    bias: -0.001,
+                    owned: 0,
+                    buyPriceSum: 0,
+                }
+            },
+            news: [
+                { text: "삼성노름, 차세대 인공지능 세탁기 대히트 조짐!", target: "SAM", effect: "UP", power: 0.12 },
+                { text: "개미지옥 테크 대표, 주가조작 루머 해명으로 급락세 제어", target: "ANT", effect: "UP", power: 0.25 },
+                { text: "도지놀이 머스크, '도지는 달로 갈 것' 밈 생성 트윗 업로드", target: "DOG", effect: "UP", power: 0.35 },
+                { text: "골드만삭쓰, 가상 이자율 인하 전망 보고서 공개", target: "GOL", effect: "UP", power: 0.06 },
+                { text: "바이오헤븐, 암세포 박멸 임상 2상 성공적 통과 속보!", target: "BIO", effect: "UP", power: 0.40 },
+                { text: "삼성노름, 공장 내 미세 정전으로 반도체 라인 임시 중단", target: "SAM", effect: "DOWN", power: -0.08 },
+                { text: "개미지옥 테크 대표, SNS 계정 돌연 삭제로 런(Run) 의혹 제기", target: "ANT", effect: "DOWN", power: -0.30 },
+                { text: "금융감독원, 도지놀이 코인 시세 조종 주도 세력 엄정 수사 착수", target: "DOG", effect: "DOWN", power: -0.22 },
+                { text: "미국 연준, 금리 인상 장기화 시사로 금융권 전체 급락 우려", target: "GOL", effect: "DOWN", power: -0.07 },
+                { text: "바이오헤븐, 연구원의 원천 데이터 조작 사실 적발로 나락행", target: "BIO", effect: "DOWN", power: -0.45 },
+            ],
+            casino: {
+                hlCurrentCard: { suit: '♥', value: 7, label: '7' },
+                hlStreak: 0
+            }
+        };
+
+        // Initialize App
+        window.onload = function() {
+            lucide.createIcons();
+            updateUI();
+            calculateTradeEstimate();
+            initChart();
+            
+            // Start the main game loop for stock ticks
+            setInterval(gameTick, 2000);
+            
+            // Start the random news ticker
+            setInterval(triggerRandomNews, 8000);
+
+            // Responsive chart redraw
+            window.addEventListener('resize', () => {
+                drawChart();
+            });
+        };
+
+        // Navigation Tabs Control
+        function switchTab(tabId) {
+            // Hide all
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('aside button').forEach(el => {
+                el.classList.remove('text-emerald-400', 'bg-emerald-950/20', 'border', 'border-emerald-800/30');
+                el.classList.add('text-gray-400', 'hover:text-white', 'hover:bg-gray-800/30');
+            });
+
+            // Show active
+            document.getElementById(tabId).classList.remove('hidden');
+            state.activeTab = tabId;
+
+            // Highlight active button
+            const activeBtn = document.getElementById(`btn-${tabId}`);
+            activeBtn.classList.remove('text-gray-400', 'hover:text-white', 'hover:bg-gray-800/30');
+            activeBtn.classList.add('text-emerald-400', 'bg-emerald-950/20', 'border', 'border-emerald-800/30');
+
+            updateUI();
+            if (tabId === 'tab-stock') {
+                setTimeout(drawChart, 50); // Redraw canvas safely
+            }
+        }
+
+        // Core Stock engine simulation (Random walk model)
+        function gameTick() {
+            for (const symbol in state.stocks) {
+                const s = state.stocks[symbol];
+                const changePercent = (Math.random() - 0.5) * s.volatility + s.bias;
+                
+                const oldPrice = s.price;
+                s.price = Math.round(s.price * (1 + changePercent));
+                if (s.price < 10) s.price = 10; // Avoid total bankruptcy death, leave some floor value
+                
+                // Keep history limited to 30 steps
+                s.history.push(s.price);
+                if (s.history.length > 30) {
+                    s.history.shift();
+                }
+            }
+            
+            updateUI();
+            if (state.activeTab === 'tab-stock') {
+                drawChart();
+            }
+        }
+
+        // Trigger random news events affecting stocks
+        function triggerRandomNews() {
+            const chance = Math.random();
+            if (chance > 0.4) { // 60% chance to have a news flash
+                const event = state.news[Math.floor(Math.random() * state.news.length)];
+                const stock = state.stocks[event.target];
+                
+                // Directly affect stock price
+                const oldPrice = stock.price;
+                stock.price = Math.round(stock.price * (1 + event.power));
+                stock.history[stock.history.length - 1] = stock.price; // Apply to current tick
+                
+                // Display in news ticker
+                const tickerEl = document.getElementById('news-ticker');
+                tickerEl.innerText = `🚨 [속보] ${event.text} (${stock.name.split(' ')[0]} ${event.effect === 'UP' ? '폭등' : '급락'}!)`;
+                
+                // Add highlight blink effect
+                tickerEl.parentElement.classList.add('bg-red-950/60');
+                setTimeout(() => {
+                    tickerEl.parentElement.classList.remove('bg-red-950/60');
+                }, 1000);
+
+                // Quick tick sound to alert player
+                sfx.tick();
+                updateUI();
+            }
+        }
+
+        // Formatter helper
+        function formatNumber(num) {
+            return num.toLocaleString();
+        }
+
+        // Calculate total net worth
+        function getNetWorth() {
+            let stockVal = 0;
+            for (const symbol in state.stocks) {
+                stockVal += state.stocks[symbol].owned * state.stocks[symbol].price;
+            }
+            return state.coins + stockVal;
+        }
+
+        // Global UI Refresh
+        function updateUI() {
+            // Main stats
+            document.getElementById('global-coins').innerText = formatNumber(state.coins);
+            const netWorth = getNetWorth();
+            document.getElementById('global-networth').innerText = formatNumber(netWorth);
+
+            // Stock terminal items update
+            const container = document.getElementById('stock-list-container');
+            container.innerHTML = '';
+
+            for (const symbol in state.stocks) {
+                const s = state.stocks[symbol];
+                const prevPrice = s.history[s.history.length - 2] || s.price;
+                const change = s.price - prevPrice;
+                const changePercent = ((change / prevPrice) * 100).toFixed(2);
+                const isUp = change >= 0;
+
+                const card = document.createElement('div');
+                card.onclick = () => selectStock(symbol);
+                card.className = `p-3.5 rounded-xl border transition duration-150 cursor-pointer ${
+                    state.selectedStockId === symbol 
+                    ? 'bg-slate-800/80 border-emerald-500 neon-glow-green' 
+                    : 'bg-slate-900/40 border-gray-800 hover:border-gray-700'
+                }`;
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-bold px-1.5 py-0.5 rounded ${isUp ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'}">${symbol}</span>
+                                <h4 class="font-bold text-sm text-gray-200">${s.name.split(' ')[0]}</h4>
+                            </div>
+                            <span class="text-[10px] text-gray-500">보유: ${s.owned} 주</span>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold text-sm font-digital ${isUp ? 'text-emerald-400' : 'text-rose-400'}">₩ ${formatNumber(s.price)}</p>
+                            <span class="text-xs font-semibold ${isUp ? 'text-emerald-500' : 'text-rose-500'}">
+                                ${isUp ? '▲' : '▼'} ${changePercent}%
+                            </span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            }
+
+            // Update Active Stock details
+            const active = state.stocks[state.selectedStockId];
+            document.getElementById('active-stock-symbol').innerText = state.selectedStockId;
+            document.getElementById('active-stock-name').innerText = active.name;
+            document.getElementById('active-stock-desc').innerText = active.desc;
+            document.getElementById('active-stock-price').innerText = `₩ ${formatNumber(active.price)}`;
+            
+            const prevPrice = active.history[active.history.length - 2] || active.price;
+            const change = active.price - prevPrice;
+            const changePercent = ((change / prevPrice) * 100).toFixed(2);
+            const isUp = change >= 0;
+            
+            const changeEl = document.getElementById('active-stock-change');
+            changeEl.innerText = `${isUp ? '+' : ''}${changePercent}% (${isUp ? '▲' : '▼'} ₩${formatNumber(Math.abs(change))})`;
+            changeEl.className = `text-xs font-bold ${isUp ? 'text-emerald-400' : 'text-rose-400'}`;
+
+            // Max Buyable computation
+            const maxBuy = Math.floor(state.coins / active.price);
+            document.getElementById('max-buy-count').innerText = formatNumber(maxBuy);
+
+            // Portfolio display update if on portfolio tab
+            if (state.activeTab === 'tab-portfolio') {
+                updatePortfolioTab(netWorth);
+            }
+        }
+
+        // Change Active Stock in graph terminal
+        function selectStock(symbol) {
+            state.selectedStockId = symbol;
+            updateUI();
+            calculateTradeEstimate();
+            drawChart();
+        }
+
+        // Buy/Sell estimate updater
+        function calculateTradeEstimate() {
+            const amountInput = document.getElementById('trade-amount');
+            let amount = parseInt(amountInput.value) || 0;
+            if (amount < 0) {
+                amount = 0;
+                amountInput.value = 0;
+            }
+            const active = state.stocks[state.selectedStockId];
+            const estimate = amount * active.price;
+            document.getElementById('trade-estimate').innerText = formatNumber(estimate);
+        }
+
+        function setTradePercent(percent) {
+            const active = state.stocks[state.selectedStockId];
+            let targetCount = 0;
+            if (percent === 100) {
+                targetCount = Math.floor(state.coins / active.price);
+            } else {
+                targetCount = Math.floor((state.coins * (percent / 100)) / active.price);
+            }
+            document.getElementById('trade-amount').value = targetCount;
+            calculateTradeEstimate();
+        }
+
+        // Execute buy/sell orders
+        function executeTrade(type) {
+            const amount = parseInt(document.getElementById('trade-amount').value) || 0;
+            const active = state.stocks[state.selectedStockId];
+            
+            if (amount <= 0) {
+                showModal("경고", "주문하실 수량이 올바르지 않습니다.", "alert-triangle", "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20");
+                return;
+            }
+
+            if (type === 'BUY') {
+                const totalCost = amount * active.price;
+                if (totalCost > state.coins) {
+                    showModal("한도 초과", "보유하고 있는 코인이 부족합니다.", "wallet", "bg-rose-500/10 text-rose-500 border border-rose-500/20");
+                    return;
+                }
+                
+                state.coins -= totalCost;
+                active.owned += amount;
+                active.buyPriceSum += (amount * active.price);
+                
+                sfx.buy();
+                showModal("매수 성공", `${active.name.split(' ')[0]} ${amount}주를 ₩${formatNumber(totalCost)} 코인에 풀매수하였습니다!`, "trending-up", "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20");
+            } else if (type === 'SELL') {
+                if (amount > active.owned) {
+                    showModal("매도 실패", "보유 주식량보다 매도 청산하려는 양이 많습니다.", "alert-octagon", "bg-rose-500/10 text-rose-500 border border-rose-500/20");
+                    return;
+                }
+
+                const totalEarn = amount * active.price;
+                
+                // Calculate average buy price for proper average deduction
+                const avgBuyPrice = active.buyPriceSum / active.owned;
+                active.owned -= amount;
+                active.buyPriceSum -= (amount * avgBuyPrice);
+                if (active.owned === 0) active.buyPriceSum = 0;
+
+                state.coins += totalEarn;
+                
+                sfx.sell();
+                showModal("매도 완료", `${active.name.split(' ')[0]} ${amount}주를 청산하여 ₩${formatNumber(totalEarn)} 코인을 회수했습니다!`, "trending-down", "bg-blue-500/10 text-blue-400 border border-blue-500/20");
+            }
+
+            updateUI();
+            calculateTradeEstimate();
+        }
+
+        // Canvas Charting
+        let canvas, ctx;
+        function initChart() {
+            canvas = document.getElementById('stock-chart');
+            ctx = canvas.getContext('2d');
+            setTimeout(drawChart, 100);
+        }
+
+        function drawChart() {
+            if (!canvas || !ctx) return;
+
+            // Make sure canvas size responsive
+            const rect = canvas.parentNode.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+
+            const active = state.stocks[state.selectedStockId];
+            const data = active.history;
+            const w = canvas.width;
+            const h = canvas.height;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Find scale limits
+            const maxVal = Math.max(...data) * 1.05;
+            const minVal = Math.min(...data) * 0.95;
+            const valDiff = maxVal - minVal;
+
+            // Draw horizontal grid line
+            ctx.strokeStyle = '#1E293B';
+            ctx.lineWidth = 1;
+            for (let i = 1; i <= 4; i++) {
+                const gridY = (h / 5) * i;
+                ctx.beginPath();
+                ctx.moveTo(0, gridY);
+                ctx.lineTo(w, gridY);
+                ctx.stroke();
+
+                // Draw price label background & text inside grid
+                const labelVal = Math.round(maxVal - (valDiff / 5) * i);
+                ctx.fillStyle = '#475569';
+                ctx.font = '10px Orbitron';
+                ctx.fillText(`₩${formatNumber(labelVal)}`, 8, gridY - 4);
+            }
+
+            // Draw stock line path
+            const points = data.map((val, idx) => {
+                const x = (w / (data.length - 1)) * idx;
+                const y = h - ((val - minVal) / valDiff) * h;
+                return {x, y, val};
+            });
+
+            // Trend determination
+            const firstPrice = data[0];
+            const lastPrice = data[data.length - 1];
+            const isUpTrend = lastPrice >= firstPrice;
+            const strokeColor = isUpTrend ? '#10B981' : '#EF4444';
+            const fillColor = isUpTrend ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)';
+
+            // Draw filled gradient under graph
+            ctx.beginPath();
+            ctx.moveTo(0, h);
+            points.forEach(p => ctx.lineTo(p.x, p.y));
+            ctx.lineTo(w, h);
+            ctx.closePath();
+            ctx.fillStyle = fillColor;
+            ctx.fill();
+
+            // Draw stroke line
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            for (let i = 1; i < points.length; i++) {
+                ctx.lineTo(points[i].x, points[i].y);
+            }
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+
+            // Draw current price dot highlight
+            const lastP = points[points.length - 1];
+            ctx.beginPath();
+            ctx.arc(lastP.x, lastP.y, 4.5, 0, 2 * Math.PI);
+            ctx.fillStyle = strokeColor;
+            ctx.fill();
+        }
+
+        // Casino - High-Low
+        function playHighLow(prediction) {
+            const betInput = document.getElementById('hl-bet');
+            const bet = parseInt(betInput.value) || 0;
+
+            if (bet <= 0 || bet > state.coins) {
+                showModal("배팅 한도 오류", "보유 코인이 부족하거나 유효하지 않은 액수입니다.", "alert-triangle", "bg-red-500/10 text-red-500 border border-red-500/20");
+                return;
+            }
+
+            // Play Synth click sound
+            sfx.tick();
+
+            // Generate new card
+            const suits = ['♥', '♦', '♣', '♠'];
+            const nextSuit = suits[Math.floor(Math.random() * suits.length)];
+            const nextVal = Math.floor(Math.random() * 13) + 1; // 1 to 13 (A to K)
+            
+            const cardLabels = {1:'A', 11:'J', 12:'Q', 13:'K'};
+            const nextLabel = cardLabels[nextVal] || nextVal.toString();
+
+            const currentVal = state.casino.hlCurrentCard.value;
+            let outcome = "TIE";
+
+            if (nextVal > currentVal) outcome = "HIGH";
+            if (nextVal < currentVal) outcome = "LOW";
+
+            let won = false;
+            if (outcome === prediction || (outcome === "TIE" && Math.random() > 0.5)) {
+                won = true;
+            }
+
+            // Update card elements visually
+            const cardDisp = document.getElementById('hl-card-display');
+            cardDisp.innerText = `${nextSuit} ${nextLabel}`;
+            cardDisp.className = `w-16 h-24 bg-gradient-to-tr from-slate-800 to-slate-900 border-2 rounded-xl flex flex-col items-center justify-center text-2xl font-black font-digital shadow-lg ${
+                ['♥','♦'].includes(nextSuit) ? 'text-rose-500 border-rose-500/50' : 'text-slate-200 border-slate-700'
+            }`;
+
+            if (won) {
+                state.casino.hlStreak++;
+                const multiplier = 1.8 + (state.casino.hlStreak * 0.1);
+                const winCoins = Math.round(bet * (multiplier - 1));
+                state.coins += winCoins;
+                
+                sfx.win();
+                document.getElementById('hl-status').innerText = `성공! ${state.casino.hlStreak}연승 중! [보너스 배율: ${multiplier.toFixed(1)}x]`;
+                showModal("하이로우 적중!", `축하합니다! 카드가 예측에 적중했습니다.\n수익금 +${formatNumber(winCoins)} 코인!`, "sparkles", "bg-amber-500/10 text-amber-400 border border-amber-500/20");
+            } else {
+                state.casino.hlStreak = 0;
+                state.coins -= bet;
+                
+                sfx.lose();
+                document.getElementById('hl-status').innerText = `연승 실패! 신규 게임을 시작합니다.`;
+                showModal("낙첨...", `아쉽습니다! 예측이 빗나갔습니다.\n-${formatNumber(bet)} 코인이 증발했습니다.`, "thumbs-down", "bg-rose-500/10 text-rose-500 border border-rose-500/20");
+            }
+
+            // Update local save
+            state.casino.hlCurrentCard = { suit: nextSuit, value: nextVal, label: nextLabel };
+            updateUI();
+        }
+
+        // Casino - Coin Flip (50% Chance)
+        function playCoinFlip(prediction) {
+            const betInput = document.getElementById('coin-bet');
+            const bet = parseInt(betInput.value) || 0;
+
+            if (bet <= 0 || bet > state.coins) {
+                showModal("배팅 한도 오류", "보유 코인이 부족하거나 유효하지 않은 액수입니다.", "alert-triangle", "bg-red-500/10 text-red-500 border border-red-500/20");
+                return;
+            }
+
+            const coinVisual = document.getElementById('coin-visual');
+            const coinStatus = document.getElementById('coin-status');
+
+            // Roll flip animation class simulation
+            coinVisual.style.transform = "rotateY(720deg)";
+            coinVisual.style.transition = "transform 0.6s ease-out";
+            
+            setTimeout(() => {
+                const flipResult = Math.random() > 0.5 ? "HEADS" : "TAILS";
+                const isHeads = flipResult === "HEADS";
+                
+                coinVisual.style.transform = "rotateY(0deg)";
+                coinVisual.style.transition = "none";
+                coinVisual.innerText = isHeads ? "앞" : "뒤";
+
+                if (prediction === flipResult) {
+                    state.coins += bet;
+                    sfx.win();
+                    coinStatus.innerText = "승리! 2.0x 획득!";
+                    showModal("홀짝 승리!", `축하합니다! 정확히 동전의 ${isHeads ? '앞면' : '뒷면'}이 나왔습니다. +${formatNumber(bet)} 코인!`, "smile", "bg-amber-500/10 text-amber-400 border border-amber-500/20");
+                } else {
+                    state.coins -= bet;
+                    sfx.lose();
+                    coinStatus.innerText = "패배... 다음 기회에";
+                    showModal("패배", `틀렸습니다! 동전은 ${isHeads ? '앞면' : '뒷면'}이었습니다. -${formatNumber(bet)} 코인!`, "frown", "bg-rose-500/10 text-rose-500 border border-rose-500/20");
+                }
+                updateUI();
+            }, 600);
+        }
+
+        // Casino - Slots
+        function spinSlots() {
+            const betInput = document.getElementById('slot-bet');
+            const bet = parseInt(betInput.value) || 0;
+
+            if (bet <= 0 || bet > state.coins) {
+                showModal("배팅 한도 오류", "보유 코인이 부족하거나 유효하지 않은 액수입니다.", "alert-triangle", "bg-red-500/10 text-red-500 border border-red-500/20");
+                return;
+            }
+
+            const symbols = ["💎", "🍒", "🍋", "🍀", "🔥", "👑"];
+            const s1 = document.getElementById('slot-1');
+            const s2 = document.getElementById('slot-2');
+            const s3 = document.getElementById('slot-3');
+
+            // Quick synthetic slot sound effect play
+            sfx.tick();
+            
+            // Randomly rolling emoji display simulated delay
+            let ticks = 0;
+            const rollInterval = setInterval(() => {
+                s1.innerText = symbols[Math.floor(Math.random() * symbols.length)];
+                s2.innerText = symbols[Math.floor(Math.random() * symbols.length)];
+                s3.innerText = symbols[Math.floor(Math.random() * symbols.length)];
+                ticks++;
+                if (ticks > 8) {
+                    clearInterval(rollInterval);
+                    resolveSlots(bet);
+                }
+            }, 80);
+        }
+
+        function resolveSlots(bet) {
+            const s1 = document.getElementById('slot-1').innerText;
+            const s2 = document.getElementById('slot-2').innerText;
+            const s3 = document.getElementById('slot-3').innerText;
+
+            let winMult = 0;
+            if (s1 === s2 && s2 === s3) {
+                // Triple jackpot!
+                if (s1 === "💎") winMult = 50;
+                else if (s1 === "👑") winMult = 40;
+                else if (s1 === "🔥") winMult = 30;
+                else winMult = 20;
+            } else if (s1 === s2 || s2 === s3 || s1 === s3) {
+                // Double pair
+                winMult = 2.5;
+            }
+
+            if (winMult > 0) {
+                const totalWon = Math.round(bet * (winMult - 1));
+                state.coins += totalWon;
+                sfx.win();
+                document.getElementById('slot-status').innerText = `JACKPOT! ${winMult}배 당첨!`;
+                showModal("대박 잭팟!", `축하합니다!! [${s1} ${s2} ${s3}] 조합 완성으로 총 ${winMult}배 당첨! +${formatNumber(totalWon)} 코인!`, "party-popper", "bg-amber-500/20 text-amber-300 border border-amber-500/40 neon-glow-gold");
+            } else {
+                state.coins -= bet;
+                sfx.lose();
+                document.getElementById('slot-status').innerText = "꽝! 다음 판을 돌려보세요.";
+                showModal("슬롯 꽝", `꽝입니다! [${s1} ${s2} ${s3}] 일치하는 심볼이 없습니다. -${formatNumber(bet)} 코인!`, "skull", "bg-rose-500/10 text-rose-500 border border-rose-500/20");
+            }
+            updateUI();
+        }
+
+        // Portfolio summary rendering
+        function updatePortfolioTab(netWorth) {
+            document.getElementById('port-cash').innerText = `${formatNumber(state.coins)} 코인`;
+            
+            let stockVal = 0;
+            const tbody = document.getElementById('portfolio-table-body');
+            tbody.innerHTML = '';
+
+            for (const symbol in state.stocks) {
+                const s = state.stocks[symbol];
+                if (s.owned > 0) {
+                    const avgPrice = Math.round(s.buyPriceSum / s.owned);
+                    const evaluation = s.owned * s.price;
+                    stockVal += evaluation;
+                    
+                    const profitRate = (((s.price - avgPrice) / avgPrice) * 100).toFixed(2);
+                    const isPlus = s.price >= avgPrice;
+
+                    const row = document.createElement('tr');
+                    row.className = 'border-b border-gray-800/40 hover:bg-slate-900/20';
+                    row.innerHTML = `
+                        <td class="px-6 py-4 font-semibold text-gray-200">${s.name.split(' ')[0]}</td>
+                        <td class="px-6 py-4 font-digital">${formatNumber(s.owned)} 주</td>
+                        <td class="px-6 py-4 font-digital">₩ ${formatNumber(avgPrice)}</td>
+                        <td class="px-6 py-4 font-digital text-amber-400">₩ ${formatNumber(s.price)}</td>
+                        <td class="px-6 py-4 font-digital font-bold text-gray-200">₩ ${formatNumber(evaluation)}</td>
+                        <td class="px-6 py-4 font-digital font-bold ${isPlus ? 'text-emerald-400' : 'text-rose-400'}">
+                            ${isPlus ? '+' : ''}${profitRate}%
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                }
+            }
+
+            if (tbody.innerHTML === '') {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-6 py-8 text-center text-gray-500 font-semibold">
+                            현재 보유중인 주식 포트폴리오가 비어있습니다. 거래소에서 매수를 진행해 보세요!
+                        </td>
+                    </tr>
+                `;
+            }
+
+            document.getElementById('port-stocks').innerText = `${formatNumber(stockVal)} 코인`;
+            
+            // Return calculation
+            const returnPct = (((netWorth - state.initialCoins) / state.initialCoins) * 100).toFixed(1);
+            const isReturnPlus = netWorth >= state.initialCoins;
+            const retEl = document.getElementById('port-return');
+            retEl.innerText = `${isReturnPlus ? '+' : ''}${returnPct}%`;
+            retEl.className = `text-2xl font-black font-digital ${isReturnPlus ? 'text-emerald-400' : 'text-rose-400'}`;
+        }
+
+        // Safe Custom Modals to replace standard alert()
+        function showModal(title, msg, icon = "info", themeClasses = "bg-slate-800 text-slate-100") {
+            const modal = document.getElementById('custom-modal');
+            const container = document.getElementById('modal-container');
+            
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = msg;
+            
+            // Icon setup
+            const iconEl = document.getElementById('modal-icon');
+            iconEl.setAttribute('data-lucide', icon);
+            
+            const iconBg = document.getElementById('modal-icon-bg');
+            iconBg.className = `w-12 h-12 rounded-full mx-auto flex items-center justify-center mb-4 ${themeClasses}`;
+            
+            lucide.createIcons();
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                container.classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('custom-modal');
+            const container = document.getElementById('modal-container');
+            
+            modal.classList.add('opacity-0');
+            container.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+    </script>
+</body>
+</html>
