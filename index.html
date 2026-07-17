@@ -3,1114 +3,2565 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>norum - 가상 가산 도박 & 주식 시뮬레이터</title>
-    <!-- Tailwind CSS for sleek utility styling -->
+    <title>Luminarc Palace Casino</title>
+    <!-- Tailwind CSS for modern adaptive layouts and styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons for premium modern dashboard icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- Google Fonts Inter & Orbitron -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    <!-- PixiJS v7 for hardware-accelerated 2D canvas rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.2.4/pixi.min.js"></script>
+    <!-- Google Fonts Inter & Orbitron for sleek futuristic vibe -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #0B0F19;
-            color: #E2E8F0;
+            background: radial-gradient(circle at center, #0f172a 0%, #020617 100%);
+            color: #f8fafc;
+            overflow-x: hidden;
         }
-        .font-digital {
+        .font-cyber {
             font-family: 'Orbitron', sans-serif;
         }
-        /* Custom scrollbars for dark UI */
+        /* Custom scrollbar for beautiful dark UI */
         ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
+            width: 8px;
         }
         ::-webkit-scrollbar-track {
-            background: #111827;
+            background: #020617;
         }
         ::-webkit-scrollbar-thumb {
-            background: #374151;
+            background: #334155;
             border-radius: 4px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: #4B5563;
+            background: #475569;
         }
-        /* Glow animations */
-        .neon-glow-green {
-            box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
+        /* Hide spin buttons for input type number */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
         }
-        .neon-glow-red {
-            box-shadow: 0 0 15px rgba(239, 68, 68, 0.2);
-        }
-        .neon-glow-gold {
-            box-shadow: 0 0 15px rgba(245, 158, 11, 0.3);
+        input[type=number] {
+            -moz-appearance: textfield;
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col overflow-x-hidden">
+<body class="min-h-screen flex flex-col justify-between">
 
-    <script>
-        // Minimal sound effects system using Web Audio API to prevent heavy asset issues
-        class SoundFX {
-            constructor() {
-                this.ctx = null;
-            }
-            init() {
-                if (!this.ctx) {
-                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-                }
-            }
-            playTone(freq, type, duration, vol = 0.1) {
-                this.init();
-                if (!this.ctx) return;
-                try {
-                    const osc = this.ctx.createOscillator();
-                    const gain = this.ctx.createGain();
-                    osc.type = type;
-                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-                    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.00001, this.ctx.currentTime + duration);
-                    osc.connect(gain);
-                    gain.connect(this.ctx.destination);
-                    osc.start();
-                    osc.stop(this.ctx.currentTime + duration);
-                } catch (e) {
-                    console.log("Audio play blocked or unsupported");
-                }
-            }
-            buy() {
-                this.playTone(523.25, 'sine', 0.15, 0.15); // C5
-                setTimeout(() => this.playTone(659.25, 'sine', 0.2, 0.15), 80); // E5
-            }
-            sell() {
-                this.playTone(587.33, 'sine', 0.15, 0.15); // D5
-                setTimeout(() => this.playTone(493.88, 'sine', 0.25, 0.15), 80); // B4
-            }
-            win() {
-                this.playTone(523.25, 'triangle', 0.1, 0.2);
-                setTimeout(() => this.playTone(659.25, 'triangle', 0.1, 0.2), 80);
-                setTimeout(() => this.playTone(783.99, 'triangle', 0.1, 0.2), 160);
-                setTimeout(() => this.playTone(1046.50, 'triangle', 0.3, 0.25), 240); // High C
-            }
-            lose() {
-                this.playTone(293.66, 'sawtooth', 0.2, 0.15); // D4
-                setTimeout(() => this.playTone(220.00, 'sawtooth', 0.4, 0.15), 150); // A3
-            }
-            tick() {
-                this.playTone(800, 'sine', 0.03, 0.05);
-            }
-        }
-        const sfx = new SoundFX();
-    </script>
-
-    <!-- Header -->
-    <header class="border-b border-gray-800 bg-[#0F172A] px-6 py-4 flex flex-wrap justify-between items-center gap-4 sticky top-0 z-50">
-        <div class="flex items-center gap-3">
-            <div class="bg-gradient-to-tr from-amber-500 to-yellow-400 p-2.5 rounded-xl shadow-lg shadow-amber-500/20">
-                <i data-lucide="coins" class="w-6 h-6 text-slate-950"></i>
-            </div>
-            <div>
-                <h1 class="text-2xl font-extrabold tracking-wider bg-gradient-to-r from-amber-400 via-yellow-300 to-emerald-400 bg-clip-text text-transparent font-digital">norum</h1>
-                <p class="text-xs text-gray-400 font-semibold tracking-wide">비공식 가상 화폐 도박판 v1.2</p>
-            </div>
-        </div>
-
-        <!-- Coins and Portfolio stats bar -->
-        <div class="flex items-center gap-6">
-            <div class="bg-[#1E293B] border border-gray-700/60 rounded-xl px-4 py-2 flex items-center gap-3">
-                <div class="bg-amber-500/20 p-1.5 rounded-lg text-amber-400">
-                    <i data-lucide="wallet" class="w-5 h-5"></i>
+    <!-- Top Header Bar -->
+    <header class="border-b border-slate-800/80 bg-slate-950/60 backdrop-blur-md sticky top-0 z-50 transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+            <!-- Brand Logo -->
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="goToLobby()">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-300 flex items-center justify-center shadow-[0_0_15px_rgba(245,158,11,0.4)]">
+                    <svg class="w-6 h-6 text-slate-950" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m12.728 12.728l.707.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
+                    </svg>
                 </div>
                 <div>
-                    <p class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">보유 코인</p>
-                    <p id="global-coins" class="text-lg font-black text-amber-400 font-digital">1,000,000</p>
+                    <h1 class="text-xl font-black tracking-wider text-amber-400 font-cyber">LUMINA PALACE</h1>
+                    <p class="text-[10px] text-slate-400 tracking-widest uppercase font-cyber" data-i18n="lobbySubtitle">Arcade Casino</p>
                 </div>
             </div>
-            
-            <div class="bg-[#1E293B] border border-gray-700/60 rounded-xl px-4 py-2 flex items-center gap-3">
-                <div class="bg-emerald-500/20 p-1.5 rounded-lg text-emerald-400">
-                    <i data-lucide="trending-up" class="w-5 h-5"></i>
+
+            <!-- Global Balance and Actions -->
+            <div class="flex items-center flex-wrap gap-4 ml-auto">
+                <!-- Balance Display -->
+                <div class="bg-slate-900/90 border border-amber-500/30 rounded-2xl px-4 py-2 flex items-center space-x-3 shadow-[0_0_10px_rgba(245,158,11,0.05)]">
+                    <svg class="w-5 h-5 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M8.433 7.418c.554-.589 1.448-.589 2.002 0l.207.22 1.41-1.423-.207-.22a4.015 4.015 0 00-5.704 0l-.207.22 1.41 1.423.207-.22zM11.567 12.582a1.418 1.418 0 01-2.002 0l-.207-.22-1.41 1.423.207.22a4.015 4.015 0 005.704 0l.207-.22-1.41-1.423-.207.22z" />
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v.184a4.535 4.535 0 00-1.676.662C6.602 12.234 6 13.009 6 14c0 .99.602 1.765 1.324 2.246A4.535 4.535 0 009 16.908V17a1 1 0 102 0v-.092a4.535 4.535 0 00-1.676-.662C13.398 15.766 14 14.991 14 14c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 11.092v-.184a4.535 4.535 0 001.676-.662C13.398 9.234 14 8.456 14 7.5c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 4.592V5zM9 11.092c-.368-.04-.694-.132-.931-.29C7.733 10.58 7.5 10.22 7.5 9.75c0-.47.233-.83.569-1.053.237-.157.563-.25.931-.29v2.685zm2 3.316v-2.685c.368.04.694.132.931.29.336.223.569.583.569 1.053 0 .47-.233.83-.569 1.053-.237.157-.563.25-.931.29z" clip-rule="evenodd" />
+                    </svg>
+                    <div class="text-right">
+                        <div class="text-[9px] text-slate-400 font-semibold tracking-wider" data-i18n="balance">Balance</div>
+                        <div class="text-base font-extrabold text-amber-400 font-cyber" id="balanceDisplay">15,000</div>
+                    </div>
+                    <span class="text-xs font-bold text-amber-300 font-cyber">LMC</span>
                 </div>
-                <div>
-                    <p class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">총 자산 가치</p>
-                    <p id="global-networth" class="text-lg font-black text-emerald-400 font-digital">1,000,000</p>
+
+                <!-- Daily Claim Bonus -->
+                <button onclick="claimBonus()" class="px-3 py-2 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold text-xs rounded-xl shadow-[0_4px_12px_rgba(16,185,129,0.2)] transition-all duration-300 flex items-center space-x-1 border border-emerald-400/20 active:scale-95">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5a2 2 0 10-2 2h2zm0 0H4m8 0h8M4 1H20v3H4V1z" />
+                    </svg>
+                    <span data-i18n="dailyBonus">Claim +1,000</span>
+                </button>
+
+                <!-- Language Selector -->
+                <div class="relative inline-block text-left">
+                    <select id="langSelect" onchange="changeLanguage(this.value)" class="bg-slate-900 border border-slate-700 text-slate-300 text-xs rounded-xl px-2 py-2 focus:ring-amber-500 focus:border-amber-500 font-semibold cursor-pointer outline-none">
+                        <option value="ko">한국어</option>
+                        <option value="en">English</option>
+                        <option value="ja">日本語</option>
+                    </select>
                 </div>
             </div>
         </div>
     </header>
 
-    <!-- Breaking News Ticker -->
-    <div class="bg-amber-950/40 border-b border-amber-900/40 px-6 py-2 overflow-hidden whitespace-nowrap relative flex items-center">
-        <div class="bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider animate-pulse flex items-center gap-1 shrink-0 z-10 mr-4">
-            <span class="w-1.5 h-1.5 bg-white rounded-full animate-ping"></span>속보
+    <!-- Main Content Container -->
+    <main class="flex-grow flex flex-col items-center justify-center p-4 w-full max-w-7xl mx-auto">
+        <!-- Toast Notification Area -->
+        <div id="toastNotification" class="fixed top-20 right-4 transform translate-x-80 opacity-0 transition-all duration-300 z-50 pointer-events-none">
+            <div class="bg-slate-900/95 border-2 border-amber-500/80 rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center space-x-3 text-slate-200">
+                <div class="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400" id="toastIcon">
+                </div>
+                <div>
+                    <p class="font-extrabold text-sm" id="toastMessage">Successfully processed!</p>
+                </div>
+            </div>
         </div>
-        <div class="w-full relative overflow-hidden h-5">
-            <div id="news-ticker" class="absolute left-0 top-0 transition-transform duration-500 text-sm text-amber-200 font-semibold truncate w-full">
-                시장 감시 위원회: "최근 개미지옥 테크 주가의 비정상적 폭등세를 밀착 감시 중입니다..."
+
+        <!-- 1. CASINO LOBBY VIEW -->
+        <section id="lobbyView" class="w-full text-center py-8">
+            <div class="max-w-3xl mx-auto mb-10">
+                <span class="px-3 py-1 rounded-full text-xs font-bold text-amber-400 bg-amber-950/40 border border-amber-500/20 uppercase tracking-widest mb-3 inline-block font-cyber">1-Player Premium Arcade</span>
+                <h2 class="text-4xl md:text-5xl font-black tracking-tight text-white mb-4 font-cyber" data-i18n="lobbyTitle">Luminarc Palace</h2>
+                <p class="text-slate-400 text-sm md:text-base max-w-lg mx-auto" data-i18n="lobbySubtitle">Web-based Single-player Casino Arcade</p>
             </div>
+
+            <!-- Extended Game Card Grid for 7 Games -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto px-4">
+                <!-- Slots Card -->
+                <div class="group relative bg-slate-950/80 border border-pink-500/30 rounded-3xl p-6 flex flex-col justify-between items-center transition-all duration-300 hover:border-pink-500 hover:shadow-[0_0_25px_rgba(236,72,153,0.15)] cursor-pointer overflow-hidden transform hover:-translate-y-1" onclick="playGame('slots')">
+                    <div class="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-pink-500/10 to-transparent rounded-bl-full pointer-events-none"></div>
+                    <div class="w-14 h-14 rounded-2xl bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-pink-400 mb-4 group-hover:scale-110 transition-transform">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                            <circle cx="6" cy="12" r="2" fill="currentColor"/>
+                            <circle cx="12" cy="12" r="2" fill="currentColor"/>
+                            <circle cx="18" cy="12" r="2" fill="currentColor"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-black tracking-wider text-pink-400 mb-2 font-cyber" data-i18n="slotsTitle">Luminarc Slots</h3>
+                    <p class="text-slate-400 text-[11px] mb-5 max-w-xs" data-i18n="slotsDesc">Align three shining symbols to win huge payouts!</p>
+                    <button class="w-full py-2.5 bg-pink-600 hover:bg-pink-500 text-white font-bold text-xs rounded-xl transition-colors shadow-lg shadow-pink-900/20 font-cyber">PLAY SLOTS</button>
+                </div>
+
+                <!-- Blackjack Card -->
+                <div class="group relative bg-slate-950/80 border border-blue-500/30 rounded-3xl p-6 flex flex-col justify-between items-center transition-all duration-300 hover:border-blue-500 hover:shadow-[0_0_25px_rgba(59,130,246,0.15)] cursor-pointer overflow-hidden transform hover:-translate-y-1" onclick="playGame('blackjack')">
+                    <div class="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-blue-500/10 to-transparent rounded-bl-full pointer-events-none"></div>
+                    <div class="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-4 group-hover:scale-110 transition-transform">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <rect x="3" y="4" width="8" height="14" rx="1" stroke-width="2"/>
+                            <rect x="13" y="6" width="8" height="14" rx="1" stroke-width="2"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-black tracking-wider text-blue-400 mb-2 font-cyber" data-i18n="bjTitle">Royale Blackjack</h3>
+                    <p class="text-slate-400 text-[11px] mb-5 max-w-xs" data-i18n="bjDesc">Face the dealer 1-on-1. Get as close to 21 as possible!</p>
+                    <button class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition-colors shadow-lg shadow-blue-900/20 font-cyber">PLAY BLACKJACK</button>
+                </div>
+
+                <!-- Roulette Card -->
+                <div class="group relative bg-slate-950/80 border border-red-500/30 rounded-3xl p-6 flex flex-col justify-between items-center transition-all duration-300 hover:border-red-500 hover:shadow-[0_0_25px_rgba(239,68,68,0.15)] cursor-pointer overflow-hidden transform hover:-translate-y-1" onclick="playGame('roulette')">
+                    <div class="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-red-500/10 to-transparent rounded-bl-full pointer-events-none"></div>
+                    <div class="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 mb-4 group-hover:scale-110 transition-transform">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="9" stroke-width="2" />
+                            <path d="M12 3v18M3 12h18" stroke-width="1.5" />
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-black tracking-wider text-red-400 mb-2 font-cyber" data-i18n="rouletteTitle">Lumina Roulette</h3>
+                    <p class="text-slate-400 text-[11px] mb-5 max-w-xs" data-i18n="rouletteDesc">Spin the neon wheel! Bet on Red, Black, or your lucky number.</p>
+                    <button class="w-full py-2.5 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl transition-colors shadow-lg shadow-red-900/20 font-cyber">PLAY ROULETTE</button>
+                </div>
+
+                <!-- Video Poker Card -->
+                <div class="group relative bg-slate-950/80 border border-purple-500/30 rounded-3xl p-6 flex flex-col justify-between items-center transition-all duration-300 hover:border-purple-500 hover:shadow-[0_0_25px_rgba(168,85,247,0.15)] cursor-pointer overflow-hidden transform hover:-translate-y-1" onclick="playGame('videopoker')">
+                    <div class="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-purple-500/10 to-transparent rounded-bl-full pointer-events-none"></div>
+                    <div class="w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 mb-4 group-hover:scale-110 transition-transform">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-black tracking-wider text-purple-400 mb-2 font-cyber" data-i18n="vpTitle">Cyber Video Poker</h3>
+                    <p class="text-slate-400 text-[11px] mb-5 max-w-xs" data-i18n="vpDesc">Draw 5 cards, choose which to hold, and make the ultimate hand!</p>
+                    <button class="w-full py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl transition-colors shadow-lg shadow-purple-900/20 font-cyber">PLAY VIDEO POKER</button>
+                </div>
+
+                <!-- Baccarat Card -->
+                <div class="group relative bg-slate-950/80 border border-emerald-500/30 rounded-3xl p-6 flex flex-col justify-between items-center transition-all duration-300 hover:border-emerald-500 hover:shadow-[0_0_25px_rgba(16,185,129,0.15)] cursor-pointer overflow-hidden transform hover:-translate-y-1" onclick="playGame('baccarat')">
+                    <div class="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-emerald-500/10 to-transparent rounded-bl-full pointer-events-none"></div>
+                    <div class="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-4 group-hover:scale-110 transition-transform">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-black tracking-wider text-emerald-400 mb-2 font-cyber" data-i18n="baccaratTitle">Neon Baccarat</h3>
+                    <p class="text-slate-400 text-[11px] mb-5 max-w-xs" data-i18n="baccaratDesc">Predict Player, Banker, or Tie in this rapid 1-on-1 classic.</p>
+                    <button class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-colors shadow-lg shadow-emerald-900/20 font-cyber">PLAY BACCARAT</button>
+                </div>
+
+                <!-- Hi-Lo Card -->
+                <div class="group relative bg-slate-950/80 border border-amber-500/30 rounded-3xl p-6 flex flex-col justify-between items-center transition-all duration-300 hover:border-amber-500 hover:shadow-[0_0_25px_rgba(245,158,11,0.15)] cursor-pointer overflow-hidden transform hover:-translate-y-1" onclick="playGame('hilo')">
+                    <div class="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-amber-500/10 to-transparent rounded-bl-full pointer-events-none"></div>
+                    <div class="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-4 group-hover:scale-110 transition-transform">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7l4-4m0 0l4 4m-4-4v18" />
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-black tracking-wider text-amber-400 mb-2 font-cyber" data-i18n="hiloTitle">Hi-Lo Action</h3>
+                    <p class="text-slate-400 text-[11px] mb-5 max-w-xs" data-i18n="hiloDesc">Guess if the next card is Higher or Lower. Keep the streak alive!</p>
+                    <button class="w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-xl transition-colors shadow-lg shadow-amber-900/20 font-cyber">PLAY HI-LO</button>
+                </div>
+
+                <!-- Dice Card -->
+                <div class="group relative bg-slate-950/80 border border-cyan-500/30 rounded-3xl p-6 flex flex-col justify-between items-center transition-all duration-300 hover:border-cyan-500 hover:shadow-[0_0_25px_rgba(6,182,212,0.15)] cursor-pointer overflow-hidden transform hover:-translate-y-1" onclick="playGame('dice')">
+                    <div class="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-cyan-500/10 to-transparent rounded-bl-full pointer-events-none"></div>
+                    <div class="w-14 h-14 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 mb-4 group-hover:scale-110 transition-transform">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <rect x="4" y="4" width="16" height="16" rx="3" stroke-width="2"/>
+                            <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
+                            <circle cx="16" cy="16" r="1.5" fill="currentColor"/>
+                            <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-black tracking-wider text-cyan-400 mb-2 font-cyber" data-i18n="diceTitle">Neon Dice</h3>
+                    <p class="text-slate-400 text-[11px] mb-5 max-w-xs" data-i18n="diceDesc">Roll two 3D-styled cyber dice. Predict Over/Under 7 or Exact Doubles!</p>
+                    <button class="w-full py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs rounded-xl transition-colors shadow-lg shadow-cyan-900/20 font-cyber">ROLL DICE</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. GAME PLAY ARENA VIEW (Canvas is injected here) -->
+        <section id="gamePlayView" class="hidden w-full flex flex-col items-center">
+            <!-- Game Canvas Container Box with Neon frame -->
+            <div class="relative w-full max-w-4xl bg-slate-950 rounded-3xl p-1.5 border-4 border-slate-800 shadow-[0_15px_45px_rgba(0,0,0,0.5)] overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500"></div>
+                <div id="pixiCanvasContainer" class="w-full aspect-[16/9] bg-[#0c1020] rounded-[22px] overflow-hidden">
+                    <!-- PixiJS Application view will be mounted dynamically here -->
+                </div>
+            </div>
+
+            <!-- A. Slots Controllers -->
+            <div id="slotsControls" class="hidden w-full max-w-4xl mt-6 p-4 bg-slate-950/80 backdrop-blur border border-slate-800 rounded-2xl flex flex-wrap items-center justify-between gap-4">
+                <button onclick="goToLobby()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition-colors flex items-center space-x-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                    <span data-i18n="backToLobby">Back</span>
+                </button>
+
+                <!-- Unified Premium Betting Widget -->
+                <div class="flex items-center gap-3 bg-slate-900/40 p-1.5 rounded-2xl border border-slate-800/80">
+                    <span class="text-xs text-slate-400 font-bold uppercase tracking-wider font-cyber ml-1" data-i18n="bet">Bet</span>
+                    <div class="flex items-center space-x-1.5 bg-slate-900 px-2 py-1 rounded-xl border border-slate-700/60">
+                        <button onclick="adjustActiveBet(-50)" class="text-pink-500 hover:text-pink-400 font-black px-1.5 active:scale-95">-</button>
+                        <input type="number" oninput="handleManualBetInput(this.value)" class="w-16 bg-transparent text-slate-200 font-cyber font-extrabold text-sm text-center outline-none direct-bet-input focus:text-pink-400 transition-colors" value="100" min="10">
+                        <button onclick="adjustActiveBet(50)" class="text-pink-500 hover:text-pink-400 font-black px-1.5 active:scale-95">+</button>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button onclick="setBetByPercent(10)" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-pink-500/30 rounded-lg text-[10px] font-black font-cyber text-slate-400 hover:text-pink-400 transition-all">10%</button>
+                        <button onclick="setBetByPercent(25)" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-pink-500/30 rounded-lg text-[10px] font-black font-cyber text-slate-400 hover:text-pink-400 transition-all">25%</button>
+                        <button onclick="setBetByPercent(50)" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-pink-500/30 rounded-lg text-[10px] font-black font-cyber text-slate-400 hover:text-pink-400 transition-all">50%</button>
+                        <button onclick="setBetByPercent(100)" class="px-2 py-1 bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/30 rounded-lg text-[10px] font-black font-cyber text-pink-400 transition-all">MAX</button>
+                    </div>
+                </div>
+
+                <button id="spinBtn" onclick="triggerSlotsSpin()" class="px-8 py-4 bg-gradient-to-r from-pink-600 to-rose-500 hover:from-pink-500 hover:to-rose-400 text-white font-black text-lg tracking-wider rounded-xl shadow-[0_4px_20px_rgba(236,72,153,0.3)] transition-all duration-300 min-w-[140px] font-cyber" data-i18n="spin">SPIN</button>
+            </div>
+
+            <!-- B. Blackjack Controllers -->
+            <div id="blackjackControls" class="hidden w-full max-w-4xl mt-6 p-4 bg-slate-950/80 backdrop-blur border border-slate-800 rounded-2xl flex flex-wrap items-center justify-between gap-4">
+                <button onclick="goToLobby()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition-colors flex items-center space-x-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                    <span data-i18n="backToLobby">Back</span>
+                </button>
+
+                <!-- Betting Panel -->
+                <div id="bjBetPanel" class="flex items-center space-x-3 flex-wrap gap-2">
+                    <!-- Unified Premium Betting Widget -->
+                    <div class="flex items-center gap-3 bg-slate-900/40 p-1.5 rounded-2xl border border-slate-800/80">
+                        <span class="text-xs text-slate-400 font-bold uppercase tracking-wider font-cyber ml-1" data-i18n="bet">Bet</span>
+                        <div class="flex items-center space-x-1.5 bg-slate-900 px-2 py-1 rounded-xl border border-slate-700/60">
+                            <button onclick="adjustActiveBet(-50)" class="text-blue-500 hover:text-blue-400 font-black px-1.5 active:scale-95">-</button>
+                            <input type="number" oninput="handleManualBetInput(this.value)" class="w-16 bg-transparent text-slate-200 font-cyber font-extrabold text-sm text-center outline-none direct-bet-input focus:text-blue-400 transition-colors" value="100" min="10">
+                            <button onclick="adjustActiveBet(50)" class="text-blue-500 hover:text-blue-400 font-black px-1.5 active:scale-95">+</button>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <button onclick="setBetByPercent(10)" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-blue-500/30 rounded-lg text-[10px] font-black font-cyber text-slate-400 hover:text-blue-400 transition-all">10%</button>
+                            <button onclick="setBetByPercent(25)" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-blue-500/30 rounded-lg text-[10px] font-black font-cyber text-slate-400 hover:text-blue-400 transition-all">25%</button>
+                            <button onclick="setBetByPercent(50)" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-blue-500/30 rounded-lg text-[10px] font-black font-cyber text-slate-400 hover:text-blue-400 transition-all">50%</button>
+                            <button onclick="setBetByPercent(100)" class="px-2 py-1 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-lg text-[10px] font-black font-cyber text-blue-400 transition-all">MAX</button>
+                        </div>
+                    </div>
+                    <button id="dealBtn" onclick="bjDealHand()" class="px-5 py-3 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs rounded-xl shadow-lg transition-colors font-cyber" data-i18n="deal">DEAL</button>
+                </div>
+
+                <!-- Play Action Panel -->
+                <div id="bjPlayPanel" class="hidden flex items-center space-x-3">
+                    <button id="hitBtn" onclick="bjHit()" class="px-5 py-3 bg-teal-600 hover:bg-teal-500 text-white font-extrabold text-xs rounded-xl shadow-lg transition-colors font-cyber" data-i18n="hit">HIT</button>
+                    <button id="standBtn" onclick="bjStand()" class="px-5 py-3 bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs rounded-xl shadow-lg transition-colors font-cyber" data-i18n="stand">STAND</button>
+                    <button id="doubleBtn" onclick="bjDouble()" class="px-5 py-3 bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs rounded-xl shadow-lg transition-colors font-cyber" data-i18n="double">DOUBLE</button>
+                </div>
+            </div>
+
+            <!-- C. Roulette Controllers -->
+            <div id="rouletteControls" class="hidden w-full max-w-4xl mt-6 p-4 bg-slate-950/80 backdrop-blur border border-slate-800 rounded-2xl flex flex-wrap items-center justify-between gap-4">
+                <button onclick="goToLobby()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition-colors flex items-center space-x-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                    <span data-i18n="backToLobby">Back</span>
+                </button>
+
+                <div class="flex items-center space-x-3 flex-wrap gap-2">
+                    <!-- Bet Target Toggle -->
+                    <div class="flex space-x-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
+                        <button onclick="setRouletteBetType('red')" id="rBtnRed" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-red-600 text-white border border-red-400/40">RED</button>
+                        <button onclick="setRouletteBetType('black')" id="rBtnBlack" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300">BLACK</button>
+                        <button onclick="setRouletteBetType('num')" id="rBtnNum" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300">NUMBER</button>
+                    </div>
+
+                    <!-- Single Number Selector (Visible only when 'num' is active) -->
+                    <input type="number" id="rouletteNumInput" min="0" max="14" value="7" class="hidden w-14 bg-slate-900 border border-slate-700 text-white text-center font-cyber text-sm rounded-xl py-1 focus:ring-red-500 focus:border-red-500 outline-none">
+
+                    <!-- Unified Premium Betting Widget -->
+                    <div class="flex items-center gap-3 bg-slate-900/40 p-1.5 rounded-2xl border border-slate-800/80">
+                        <span class="text-xs text-slate-400 font-bold uppercase tracking-wider font-cyber ml-1" data-i18n="bet">Bet</span>
+                        <div class="flex items-center space-x-1.5 bg-slate-900 px-2 py-1 rounded-xl border border-slate-700/60">
+                            <button onclick="adjustActiveBet(-50)" class="text-red-500 hover:text-red-400 font-black px-1.5 active:scale-95">-</button>
+                            <input type="number" oninput="handleManualBetInput(this.value)" class="w-16 bg-transparent text-slate-200 font-cyber font-extrabold text-sm text-center outline-none direct-bet-input focus:text-red-400 transition-colors" value="100" min="10">
+                            <button onclick="adjustActiveBet(50)" class="text-red-500 hover:text-red-400 font-black px-1.5 active:scale-95">+</button>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <button onclick="setBetByPercent(10)" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-red-500/30 rounded-lg text-[10px] font-black font-cyber text-slate-400 hover:text-red-400 transition-all">10%</button>
+                            <button onclick="setBetByPercent(25)" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-red-500/30 rounded-lg text-[10px] font-black font-cyber text-slate-400 hover:text-red-400 transition-all">25%</button>
+                            <button onclick="setBetByPercent(50)" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-red-500/30 rounded-lg text-[10px] font-black font-cyber text-slate-400 hover:text-red-400 transition-all">50%</button>
+                            <button onclick="setBetByPercent(100)" class="px-2 py-1 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 rounded-lg text-[10px] font-black font-cyber text-red-400 transition-all">MAX</button>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="rouletteSpinBtn" onclick="triggerRouletteSpin()" class="px-8 py-3 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-black text-sm tracking-wider rounded-xl shadow-lg shadow-red-900/30 transition-all duration-300 min-w-[130px] font-cyber" data-i18n="spin">SPIN</button>
+            </div>
+
+            <!-- D. Video Poker Controllers -->
+            <div id="videopokerControls" class="hidden w-full max-w-4xl mt-6 p-4 bg-slate-950/80 backdrop-blur border border-slate-800 rounded-2xl flex flex-wrap items-center justify-between gap-4">
+                <button onclick="goToLobby()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition-colors flex items-center space-x-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                    <span data-i18n="backToLobby">Back</span>
+                </button>
+
+                <!-- Hold Buttons mapping to the 5 cards -->
+                <div class="flex space-x-2 justify-center">
+                    <button onclick="toggleVpHold(0)" id="vpHold0" class="px-3 py-2 bg-slate-800 hover:bg-purple-950/80 hover:border-purple-500 border border-slate-700 rounded-xl text-[10px] font-extrabold text-slate-400 transition-all font-cyber">HOLD 1</button>
+                    <button onclick="toggleVpHold(1)" id="vpHold1" class="px-3 py-2 bg-slate-800 hover:bg-purple-950/80 hover:border-purple-500 border border-slate-700 rounded-xl text-[10px] font-extrabold text-slate-400 transition-all font-cyber">HOLD 2</button>
+                    <button onclick="toggleVpHold(2)" id="vpHold2" class="px-3 py-2 bg-slate-800 hover:bg-purple-950/80 hover:border-purple-500 border border-slate-700 rounded-xl text-[10px] font-extrabold text-slate-400 transition-all font-cyber">HOLD 3</button>
+                    <button onclick="toggleVpHold(3)" id="vpHold3" class="px-3 py-2 bg-slate-800 hover:bg-purple-950/80 hover:border-purple-500 border border-slate-700 rounded-xl text-[10px] font-extrabold text-slate-400 transition-all font-cyber">HOLD 4</button>
+                    <button onclick="toggleVpHold(4)" id="vpHold4" class="px-3 py-2 bg-slate-800 hover:bg-purple-950/80 hover:border-purple-500 border border-slate-700 rounded-xl text-[10px] font-extrabold text-slate-400 transition-all font-cyber">HOLD 5</button>
+                </div>
+
+                <div class="flex items-center space-x-4 flex-wrap gap-2">
+                    <!-- Unified Premium Betting Widget -->
+                    <div class="flex items-center gap-3 bg-slate-900/40 p-1.5 rounded-2xl border border-slate-800/80">
+                        <span class="text-xs text-slate-400 font-bold uppercase tracking-wider font-cyber ml-1" data-i18n="bet">Bet</span>
+                        <div class="flex items-center space-x-1.5 bg-slate-900 px-2 py-1 rounded-xl border border-slate-700/60">
+                            <button onclick="adjustActiveBet(-50)" class="text-purple-500 hover:text-purple-400 font-black px-1.5 active:scale-95">-</button>
+                            <input type="number" oninput="handleManualBetInput(this.value)" class="w-16 bg-transparent text-slate-200 font-cyber font-extrabold text-sm text-center outline-none direct-bet-input focus:text-purple-400 transition-colors" value="100" min="10">
+                            <button onclick="adjustActiveBet(50)" class="text-purple-500 hover:text-purple-400 font-black px-1.5 active:scale-95">+</button>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <button onclick="setBetByPercent(10)" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-purple-500/30 rounded-lg text-[10px] font-black font-cyber text-slate-400 hover:text-purple-400 transition-all">10%</button>
+                            <button onclick="setBetByPercent(25)" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-purple-500/30 rounded-lg text-[10px] font-black font-cyber text-slate-400 hover:text-purple-400 transition-all">25%</button>
+                            <button onclick="setBetByPercent(50)" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-purple-500/30 rounded-lg text-[10px] font-black font-cyber text-slate-400 hover:text-purple-400 transition-all">50%</button>
+                            <button onclick="setBetByPercent(100)" class="px-2 py-1 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 rounded-lg text-[10px] font-black font-cyber text-purple-400 transition-all">MAX</button>
+                        </div>
+                    </div>
+
+                    <button id="vpPlayBtn" onclick="triggerVpAction()" class="px-8 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-sm tracking-wider rounded-xl shadow-lg transition-all duration-300 min-w-[130px] font-cyber" data-i18n="deal">DEAL</button>
+                </div>
+            </div>
+
+            <!-- E. Baccarat Controllers -->
+            <div id="baccaratControls" class="hidden w-full max-w-4xl mt-6 p-4 bg-slate-950/80 backdrop-blur border border-slate-800 rounded-2xl flex flex-wrap items-center justify-between gap-4">
+                <button onclick="goToLobby()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition-colors flex items-center space-x-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                    <span data-i18n="backToLobby">Back</span>
+                </button>
+
+                <div class="flex items-center space-x-3 flex-wrap gap-2">
+                    <!-- Bet Target Toggle -->
+                    <div class="flex space-x-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
+                        <button onclick="setBaccaratBetType('player')" id="bBtnPlayer" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white">PLAYER</button>
+                        <button onclick="setBaccaratBetType('banker')" id="bBtnBanker" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300">BANKER</button>
+                        <button onclick="setBaccaratBetType('tie')" id="bBtnTie" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300">TIE</button>
+                    </div>
+
+                    <!-- Unified Premium Betting Widget -->
+                    <div class="flex items-center gap-3 bg-slate-900/40 p-1.5 rounded-2xl border border-slate-800/80">
+                        <span class="text-xs text-slate-400 font-bold uppercase tracking-wider font-cyber ml-1" data-i18n="bet">Bet</span>
+                        <div class="flex items-center space-x-1.5 bg-slate-900 px-2 py-1 rounded-xl border border-slate-700/60">
+                            <button onclick="adjustActiveBet(-50)" class="text-emerald-500 hover:text-emerald-400 font-black px-1.5 active:scale-95">-</button>
+                            <input type="number" oninput="handleManualBetInput(this.value)" class="w-16 bg-transparent text-slate-200 font-cyber font-extrabold text-sm text-center outline-none direct-bet-input focus:text-emerald-400 transition-colors" value="100" min="10">
+                            <button onclick="adjustActiveBet(50)" class="text-emerald-500 hover:text-emerald-400 font-black px-1.5 active:scale-95">+</button>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <button onclick="setBetByPercent(10)" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/30 rounded-lg text-[10px] font-black font-cyber text-slate-400 hover:text-emerald-400 transition-all">10%</button>
+                            <button onclick="setBetByPercent(25)" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/30 rounded-lg text-[10px] font-black font-cyber text-slate-400 hover:text-emerald-400 transition-all">25%</button>
+                            <button onclick="setBetByPercent(50)" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/30 rounded-lg text-[10px] font-black font-cyber text-slate-400 hover:text-emerald-400 transition-all">50%</button>
+                            <button onclick="setBetByPercent(100)" class="px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-lg text-[10px] font-black font-cyber text-emerald-400 transition-all">MAX</button>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="baccaratDealBtn" onclick="triggerBaccaratDeal()" class="px-8 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-sm tracking-wider rounded-xl shadow-lg shadow-emerald-900/30 transition-all duration-300 min-w-[130px] font-cyber" data-i18n="deal">DEAL</button>
+            </div>
+
+            <!-- F. Hi-Lo Controllers -->
+            <div id="hiloControls" class="hidden w-full max-w-4xl mt-6 p-4 bg-slate-950/80 backdrop-blur border border-slate-800 rounded-2xl flex flex-wrap items-center justify-between gap-4">
+                <button onclick="goToLobby()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition-colors flex items-center space-x-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                    <span data-i18n="backToLobby">Back</span>
+                </button>
+
+                <!-- Guess / Action buttons -->
+                <div id="hiloPlayPanel" class="hidden flex items-center space-x-2">
+                    <button id="hiloHighBtn" onclick="triggerHiloGuess('high')" class="px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-lg transition-colors font-cyber">HIGHER (▲)</button>
+                    <button id="hiloLowBtn" onclick="triggerHiloGuess('low')" class="px-5 py-3 bg-red-600 hover:bg-red-500 text-white font-extrabold text-xs rounded-xl shadow-lg transition-colors font-cyber">LOWER (▼)</button>
+                    <button id="hiloCashoutBtn" onclick="triggerHiloCashout()" class="px-5 py-3 bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs rounded-xl shadow-lg transition-colors font-cyber">CASHOUT</button>
+                </div>
+
+                <!-- Betting Panel -->
+                <div id="hiloBetPanel" class="flex items-center space-x-3 flex-wrap gap-2">
+                    <!-- Unified Premium Betting Widget -->
+                    <div class="flex items-center gap-3 bg-slate-900/40 p-1.5 rounded-2xl border border-slate-800/80">
+                        <span class="text-xs text-slate-400 font-bold uppercase tracking-wider font-cyber ml-1" data-i18n="bet">Bet</span>
+                        <div class="flex items-center space-x-1.5 bg-slate-900 px-2 py-1 rounded-xl border border-slate-700/60">
+                            <button onclick="adjustActiveBet(-50)" class="text-amber-500 hover:text-amber-400 font-black px-1.5 active:scale-95">-</button>
+                            <input type="number" oninput="handleManualBetInput(this.value)" class="w-16 bg-transparent text-slate-200 font-cyber font-extrabold text-sm text-center outline-none direct-bet-input focus:text-amber-400 transition-colors" value="100" min="10">
+                            <button onclick="adjustActiveBet(50)" class="text-amber-500 hover:text-amber-400 font-black px-1.5 active:scale-95">+</button>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <button onclick="setBetByPercent(10)" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/30 rounded-lg text-[10px] font-black font-cyber text-slate-400 hover:text-amber-400 transition-all">10%</button>
+                            <button onclick="setBetByPercent(25)" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/30 rounded-lg text-[10px] font-black font-cyber text-slate-400 hover:text-amber-400 transition-all">25%</button>
+                            <button onclick="setBetByPercent(50)" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/30 rounded-lg text-[10px] font-black font-cyber text-slate-400 hover:text-amber-400 transition-all">50%</button>
+                            <button onclick="setBetByPercent(100)" class="px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-lg text-[10px] font-black font-cyber text-amber-400 transition-all">MAX</button>
+                        </div>
+                    </div>
+                    <button id="hiloStartBtn" onclick="triggerHiloStart()" class="px-6 py-3 bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs rounded-xl shadow-lg transition-colors font-cyber" data-i18n="deal">START</button>
+                </div>
+            </div>
+
+            <!-- G. Dice Controllers -->
+            <div id="diceControls" class="hidden w-full max-w-4xl mt-6 p-4 bg-slate-950/80 backdrop-blur border border-slate-800 rounded-2xl flex flex-wrap items-center justify-between gap-4">
+                <button onclick="goToLobby()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition-colors flex items-center space-x-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                    <span data-i18n="backToLobby">Back</span>
+                </button>
+
+                <div class="flex items-center space-x-3 flex-wrap gap-2">
+                    <!-- Bet Target Toggle -->
+                    <div class="flex space-x-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
+                        <button onclick="setDiceBetType('under')" id="dBtnUnder" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-cyan-600 text-white">UNDER 7</button>
+                        <button onclick="setDiceBetType('over')" id="dBtnOver" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300">OVER 7</button>
+                        <button onclick="setDiceBetType('exact')" id="dBtnExact" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300">EXACT 7</button>
+                    </div>
+
+                    <!-- Unified Premium Betting Widget -->
+                    <div class="flex items-center gap-3 bg-slate-900/40 p-1.5 rounded-2xl border border-slate-800/80">
+                        <span class="text-xs text-slate-400 font-bold uppercase tracking-wider font-cyber ml-1" data-i18n="bet">Bet</span>
+                        <div class="flex items-center space-x-1.5 bg-slate-900 px-2 py-1 rounded-xl border border-slate-700/60">
+                            <button onclick="adjustActiveBet(-50)" class="text-cyan-500 hover:text-cyan-400 font-black px-1.5 active:scale-95">-</button>
+                            <input type="number" oninput="handleManualBetInput(this.value)" class="w-16 bg-transparent text-slate-200 font-cyber font-extrabold text-sm text-center outline-none direct-bet-input focus:text-cyan-400 transition-colors" value="100" min="10">
+                            <button onclick="adjustActiveBet(50)" class="text-cyan-500 hover:text-cyan-400 font-black px-1.5 active:scale-95">+</button>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <button onclick="setBetByPercent(10)" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-cyan-500/30 rounded-lg text-[10px] font-black font-cyber text-slate-400 hover:text-cyan-400 transition-all">10%</button>
+                            <button onclick="setBetByPercent(25)" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-cyan-500/30 rounded-lg text-[10px] font-black font-cyber text-slate-400 hover:text-cyan-400 transition-all">25%</button>
+                            <button onclick="setBetByPercent(50)" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-cyan-500/30 rounded-lg text-[10px] font-black font-cyber text-slate-400 hover:text-cyan-400 transition-all">50%</button>
+                            <button onclick="setBetByPercent(100)" class="px-2 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 rounded-lg text-[10px] font-black font-cyber text-cyan-400 transition-all">MAX</button>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="diceRollBtn" onclick="triggerDiceRoll()" class="px-8 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black text-sm tracking-wider rounded-xl shadow-lg shadow-cyan-900/30 transition-all duration-300 min-w-[130px] font-cyber">ROLL</button>
+            </div>
+
+            <!-- Game Rules display -->
+            <div class="w-full max-w-4xl mt-4 px-4 py-3 bg-slate-950/40 rounded-xl border border-slate-900 text-center">
+                <span class="text-xs font-semibold text-slate-400 font-cyber" data-i18n="rules">Rules & Payouts</span>: 
+                <span class="text-[11px] text-slate-500 block sm:inline sm:ml-2" id="rulesDetailText"></span>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-900/60 bg-slate-950/40 py-4 mt-8">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-600">
+            <p>&copy; 2026 Lumina Palace Arcade. All rights reserved. Play Responsibly.</p>
         </div>
-    </div>
+    </footer>
 
-    <!-- Dashboard Shell -->
-    <div class="flex-1 flex flex-col md:flex-row">
-        <!-- Sidebar Menu -->
-        <aside class="w-full md:w-64 bg-[#0F172A] border-r border-gray-800 p-4 flex md:flex-col gap-2 md:gap-4 justify-around md:justify-start overflow-x-auto shrink-0">
-            <p class="hidden md:block text-xs font-bold text-gray-500 uppercase px-3 tracking-widest mt-2">MAIN NAVI</p>
-            
-            <button onclick="switchTab('tab-stock')" id="btn-tab-stock" class="flex-1 md:flex-none flex items-center justify-center md:justify-start gap-3 px-4 py-3 rounded-xl text-emerald-400 bg-emerald-950/20 border border-emerald-800/30 transition font-bold text-sm">
-                <i data-lucide="candlestick-chart" class="w-5 h-5"></i>
-                <span class="hidden sm:inline">주식 거래소</span>
-            </button>
-            
-            <button onclick="switchTab('tab-casino')" id="btn-tab-casino" class="flex-1 md:flex-none flex items-center justify-center md:justify-start gap-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-gray-800/30 transition font-bold text-sm">
-                <i data-lucide="dices" class="w-5 h-5 text-amber-500"></i>
-                <span class="hidden sm:inline">노름 카지노</span>
-            </button>
-            
-            <button onclick="switchTab('tab-portfolio')" id="btn-tab-portfolio" class="flex-1 md:flex-none flex items-center justify-center md:justify-start gap-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-gray-800/30 transition font-bold text-sm">
-                <i data-lucide="briefcase" class="w-5 h-5"></i>
-                <span class="hidden sm:inline">나의 투자 포트</span>
-            </button>
-
-            <div class="hidden md:block mt-auto border-t border-gray-800 pt-4">
-                <div class="bg-[#1E293B]/50 p-4 rounded-xl border border-gray-800">
-                    <p class="text-xs font-bold text-gray-400 mb-2">💡 미세 팁</p>
-                    <p class="text-[11px] text-gray-500 leading-relaxed">
-                        실시간 속보 뉴스창을 매의 눈으로 주시하세요! 호재/악재 뉴스가 뜨면 주가가 곧바로 요동칩니다. 낚시성 찌라시도 존재하니 현명하게 배팅하세요!
-                    </p>
-                </div>
-            </div>
-        </aside>
-
-        <!-- Main Workspace -->
-        <main class="flex-1 p-4 md:p-6 overflow-y-auto">
-            <!-- TAB: Stock Market -->
-            <div id="tab-stock" class="tab-content space-y-6">
-                <!-- Grid: Stock list + Interactive Live Chart -->
-                <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
-                    
-                    <!-- Left Column: Stocks Terminal List (5 cols) -->
-                    <div class="xl:col-span-5 bg-[#0F172A] border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
-                        <div class="flex justify-between items-center pb-2 border-b border-gray-800">
-                            <h3 class="text-base font-bold text-gray-300 flex items-center gap-2">
-                                <i data-lucide="list" class="w-4 h-4 text-emerald-500"></i>
-                                상장 종목 모니터
-                            </h3>
-                            <span class="text-[11px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-semibold animate-pulse flex items-center gap-1">
-                                <span class="w-1 h-1 bg-emerald-400 rounded-full"></span>실시간 송출중
-                            </span>
-                        </div>
-                        
-                        <!-- Stocks Loop -->
-                        <div id="stock-list-container" class="space-y-3">
-                            <!-- Stock Cards injected dynamically by JS -->
-                        </div>
-                    </div>
-
-                    <!-- Right Column: Live Trading Chart & Engine (7 cols) -->
-                    <div class="xl:col-span-7 bg-[#0F172A] border border-gray-800 rounded-2xl p-5 flex flex-col justify-between min-h-[480px]">
-                        <div>
-                            <div class="flex flex-wrap justify-between items-start gap-4 mb-4">
-                                <div class="flex items-center gap-3">
-                                    <span id="active-stock-symbol" class="bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-1 rounded-lg font-bold border border-emerald-500/20">SAM</span>
-                                    <div>
-                                        <h2 id="active-stock-name" class="text-xl font-bold">삼성노름</h2>
-                                        <p id="active-stock-desc" class="text-xs text-gray-400">시총 1위의 든든한 안정 종목</p>
-                                    </div>
-                                </div>
-                                <div class="text-right">
-                                    <p id="active-stock-price" class="text-2xl font-black font-digital text-emerald-400">₩ 15,200</p>
-                                    <p id="active-stock-change" class="text-xs font-semibold text-emerald-500">+1.25% (▲ ₩180)</p>
-                                </div>
-                            </div>
-
-                            <!-- Responsive Canvas Container -->
-                            <div class="relative w-full h-56 bg-slate-950/70 border border-slate-900 rounded-xl overflow-hidden p-2">
-                                <canvas id="stock-chart" class="w-full h-full block"></canvas>
-                                <div id="chart-tooltip" class="absolute hidden bg-slate-900/90 border border-slate-700 p-2 rounded text-xs pointer-events-none z-10 shadow-lg"></div>
-                            </div>
-                        </div>
-
-                        <!-- Trading Action Panel -->
-                        <div class="mt-6 pt-4 border-t border-gray-800">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-                                <div>
-                                    <div class="flex justify-between text-xs font-semibold mb-2">
-                                        <span class="text-gray-400">주문 수량 입력</span>
-                                        <span class="text-gray-400">최대 매수 가능: <strong id="max-buy-count" class="text-amber-400">0</strong> 주</span>
-                                    </div>
-                                    <div class="flex gap-2">
-                                        <input type="number" id="trade-amount" min="1" value="10" oninput="calculateTradeEstimate()" class="w-full bg-slate-950 border border-gray-800 rounded-xl px-4 py-2.5 text-center text-lg font-bold font-digital focus:outline-none focus:border-amber-500 text-amber-400">
-                                        <button onclick="setTradePercent(25)" class="text-xs bg-slate-800 hover:bg-slate-700 px-2 rounded-lg font-bold">25%</button>
-                                        <button onclick="setTradePercent(50)" class="text-xs bg-slate-800 hover:bg-slate-700 px-2 rounded-lg font-bold">50%</button>
-                                        <button onclick="setTradePercent(100)" class="text-xs bg-slate-800 hover:bg-slate-700 px-2 rounded-lg font-bold">MAX</button>
-                                    </div>
-                                    <p class="text-xs text-gray-500 mt-2 text-center md:text-left">
-                                        예상 총 금액: <span id="trade-estimate" class="font-digital font-semibold text-gray-300">0</span> 코인
-                                    </p>
-                                </div>
-                                <div class="flex gap-4">
-                                    <button onclick="executeTrade('BUY')" class="flex-1 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-slate-950 font-extrabold py-3.5 px-6 rounded-xl shadow-lg shadow-emerald-950/30 transition duration-150 transform active:scale-95 flex flex-col items-center justify-center">
-                                        <span class="text-sm tracking-widest uppercase">풀매수</span>
-                                        <span class="text-[10px] font-medium opacity-80">(지정가 구입)</span>
-                                    </button>
-                                    <button onclick="executeTrade('SELL')" class="flex-1 bg-gradient-to-r from-rose-600 to-pink-500 hover:from-rose-500 hover:to-pink-400 text-white font-extrabold py-3.5 px-6 rounded-xl shadow-lg shadow-rose-950/30 transition duration-150 transform active:scale-95 flex flex-col items-center justify-center">
-                                        <span class="text-sm tracking-widest uppercase">분할 매도</span>
-                                        <span class="text-[10px] font-medium opacity-80">(보유 수량 청산)</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
-            </div>
-
-            <!-- TAB: Casino (Norum Games) -->
-            <div id="tab-casino" class="tab-content hidden space-y-6">
-                <div class="max-w-4xl mx-auto">
-                    <!-- Heading -->
-                    <div class="text-center mb-8">
-                        <h2 class="text-3xl font-black tracking-wider bg-gradient-to-r from-amber-400 to-yellow-300 bg-clip-text text-transparent font-digital">NORUM VIP CASINO</h2>
-                        <p class="text-sm text-gray-400 mt-1">인생 한 방! 가상 코인을 신속하게 불려 보십시오.</p>
-                    </div>
-
-                    <!-- Grid of Games -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        
-                        <!-- Mini Game 1: High-Low Game -->
-                        <div class="bg-[#0F172A] border border-gray-800 rounded-2xl p-5 flex flex-col justify-between hover:border-amber-500/40 transition">
-                            <div>
-                                <div class="flex justify-between items-center mb-4">
-                                    <span class="bg-amber-500/10 text-amber-400 text-xs font-bold px-2.5 py-1 rounded border border-amber-500/20">CARD</span>
-                                    <i data-lucide="dices" class="w-5 h-5 text-amber-400"></i>
-                                </div>
-                                <h3 class="text-lg font-bold mb-1">하이앤로우 (High-Low)</h3>
-                                <p class="text-xs text-gray-400 mb-4">공개된 카드(A~K)보다 다음에 뽑힐 카드가 높을지 낮을지 맞추는 배당 도박.</p>
-                                
-                                <div class="bg-slate-950/60 rounded-xl p-4 flex flex-col items-center justify-center gap-2 mb-4 border border-slate-900">
-                                    <div class="text-xs text-slate-500">현재 오픈된 카드</div>
-                                    <div id="hl-card-display" class="w-16 h-24 bg-gradient-to-tr from-slate-800 to-slate-900 border border-gray-700 rounded-xl flex flex-col items-center justify-center text-2xl font-black font-digital text-red-500 shadow-lg">
-                                        ♥ 7
-                                    </div>
-                                    <div id="hl-status" class="text-xs font-semibold text-amber-400">연승 성공 시 배당 1.8x 누적</div>
-                                </div>
-                            </div>
-                            
-                            <div class="space-y-3">
-                                <div>
-                                    <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider block mb-1">배팅 코인 입력</label>
-                                    <input id="hl-bet" type="number" min="1000" value="10000" class="w-full bg-slate-950 border border-gray-800 rounded-xl px-3 py-2 text-center font-bold text-amber-400 focus:outline-none">
-                                </div>
-                                <div class="flex gap-2">
-                                    <button onclick="playHighLow('HIGH')" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black py-2.5 rounded-xl text-xs transition uppercase">더 높음 (HIGH)</button>
-                                    <button onclick="playHighLow('LOW')" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-black py-2.5 rounded-xl text-xs transition uppercase">더 낮음 (LOW)</button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Mini Game 2: Double or Nothing (Coin Flip) -->
-                        <div class="bg-[#0F172A] border border-gray-800 rounded-2xl p-5 flex flex-col justify-between hover:border-amber-500/40 transition">
-                            <div>
-                                <div class="flex justify-between items-center mb-4">
-                                    <span class="bg-emerald-500/10 text-emerald-400 text-xs font-bold px-2.5 py-1 rounded border border-emerald-500/20">COIN FLIP</span>
-                                    <i data-lucide="circle-dot" class="w-5 h-5 text-emerald-400"></i>
-                                </div>
-                                <h3 class="text-lg font-bold mb-1">코인 동전 앞뒤 던지기</h3>
-                                <p class="text-xs text-gray-400 mb-4">50%의 순수한 기적! 앞면을 맞추면 2배 지급, 틀리면 기부.</p>
-                                
-                                <div class="bg-slate-950/60 rounded-xl p-4 flex flex-col items-center justify-center gap-2 mb-4 border border-slate-900 min-h-[140px]">
-                                    <!-- Rotating Simulated Coin representation -->
-                                    <div id="coin-visual" class="w-16 h-16 rounded-full bg-gradient-to-tr from-yellow-500 via-amber-400 to-yellow-500 border-4 border-yellow-300 flex items-center justify-center text-slate-950 text-2xl font-black font-digital shadow-lg shadow-yellow-500/10">
-                                        앞
-                                    </div>
-                                    <div id="coin-status" class="text-xs font-semibold text-gray-400 mt-1">배팅 후 앞/뒤를 선택하세요</div>
-                                </div>
-                            </div>
-                            
-                            <div class="space-y-3">
-                                <div>
-                                    <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider block mb-1">배팅 코인 입력</label>
-                                    <input id="coin-bet" type="number" min="1000" value="50000" class="w-full bg-slate-950 border border-gray-800 rounded-xl px-3 py-2 text-center font-bold text-amber-400 focus:outline-none">
-                                </div>
-                                <div class="flex gap-2">
-                                    <button onclick="playCoinFlip('HEADS')" class="flex-1 bg-yellow-500 hover:bg-yellow-400 text-slate-950 font-black py-2.5 rounded-xl text-xs transition">앞면 걸기</button>
-                                    <button onclick="playCoinFlip('TAILS')" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-black py-2.5 rounded-xl text-xs transition">뒷면 걸기</button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Mini Game 3: Cyberpunk Slot Machine -->
-                        <div class="bg-[#0F172A] border border-gray-800 rounded-2xl p-5 flex flex-col justify-between hover:border-amber-500/40 transition">
-                            <div>
-                                <div class="flex justify-between items-center mb-4">
-                                    <span class="bg-purple-500/10 text-purple-400 text-xs font-bold px-2.5 py-1 rounded border border-purple-500/20">SLOTS</span>
-                                    <i data-lucide="gamepad-2" class="w-5 h-5 text-purple-400"></i>
-                                </div>
-                                <h3 class="text-lg font-bold mb-1">사이버 슬롯머신</h3>
-                                <p class="text-xs text-gray-400 mb-4">세 칸의 이모지가 전부 일치하면 최소 10배에서 50배의 잭팟을 터뜨립니다!</p>
-                                
-                                <div class="bg-slate-950/60 rounded-xl p-4 flex flex-col items-center justify-center gap-3 mb-4 border border-slate-900">
-                                    <div class="flex gap-3 justify-center">
-                                        <div id="slot-1" class="w-12 h-16 bg-slate-900 border border-gray-800 rounded-xl flex items-center justify-center text-3xl shadow-inner font-digital">💎</div>
-                                        <div id="slot-2" class="w-12 h-16 bg-slate-900 border border-gray-800 rounded-xl flex items-center justify-center text-3xl shadow-inner font-digital">🍒</div>
-                                        <div id="slot-3" class="w-12 h-16 bg-slate-900 border border-gray-800 rounded-xl flex items-center justify-center text-3xl shadow-inner font-digital">🍋</div>
-                                    </div>
-                                    <div id="slot-status" class="text-xs font-semibold text-purple-400">3개 일치 시 50배 잭팟!</div>
-                                </div>
-                            </div>
-                            
-                            <div class="space-y-3">
-                                <div>
-                                    <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider block mb-1">배팅 코인 입력</label>
-                                    <input id="slot-bet" type="number" min="5000" value="10000" class="w-full bg-slate-950 border border-gray-800 rounded-xl px-3 py-2 text-center font-bold text-amber-400 focus:outline-none">
-                                </div>
-                                <button onclick="spinSlots()" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold py-3 rounded-xl text-xs tracking-widest transition uppercase shadow-md shadow-purple-950/40">레버 당기기 (SPIN)</button>
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
-            </div>
-
-            <!-- TAB: Portfolio Manager -->
-            <div id="tab-portfolio" class="tab-content hidden space-y-6">
-                <div class="max-w-4xl mx-auto">
-                    <!-- Dashboard Statistics Card -->
-                    <div class="bg-[#0F172A] border border-gray-800 rounded-2xl p-6">
-                        <h2 class="text-xl font-bold mb-6 flex items-center gap-2">
-                            <i data-lucide="pie-chart" class="w-5 h-5 text-emerald-500"></i>
-                            자산 현황 요약 리포트
-                        </h2>
-
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                            <div class="bg-slate-950/70 p-4 rounded-xl border border-slate-900">
-                                <p class="text-xs text-gray-400 font-semibold mb-1">가용 현금 코인</p>
-                                <p id="port-cash" class="text-2xl font-black font-digital text-amber-400">1,000,000</p>
-                            </div>
-                            <div class="bg-slate-950/70 p-4 rounded-xl border border-slate-900">
-                                <p class="text-xs text-gray-400 font-semibold mb-1">보유 주식 평가액</p>
-                                <p id="port-stocks" class="text-2xl font-black font-digital text-emerald-400">0</p>
-                            </div>
-                            <div class="bg-slate-950/70 p-4 rounded-xl border border-slate-900">
-                                <p class="text-xs text-gray-400 font-semibold mb-1">누적 도박/투자 수익률</p>
-                                <p id="port-return" class="text-2xl font-black font-digital text-emerald-400">+0.0%</p>
-                            </div>
-                        </div>
-
-                        <!-- Holding stock assets table -->
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left text-sm text-gray-400">
-                                <thead class="text-xs uppercase bg-slate-900 text-gray-300 font-bold border-b border-gray-800">
-                                    <tr>
-                                        <th class="px-6 py-4 rounded-l-xl">종목명</th>
-                                        <th class="px-6 py-4">보유 수량</th>
-                                        <th class="px-6 py-4">평균 매수가</th>
-                                        <th class="px-6 py-4">현재가</th>
-                                        <th class="px-6 py-4">평가금액</th>
-                                        <th class="px-6 py-4 rounded-r-xl">수익률</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="portfolio-table-body" class="divide-y divide-gray-800/50">
-                                    <!-- Table Rows injected Dynamically -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </main>
-    </div>
-
-    <!-- Custom Modal/Toast UI for safety instead of alerts -->
-    <div id="custom-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
-        <div class="bg-[#0F172A] border border-gray-800 rounded-2xl max-w-sm w-full p-6 mx-4 shadow-2xl relative transform scale-95 transition-transform duration-300" id="modal-container">
-            <div id="modal-icon-bg" class="w-12 h-12 rounded-full mx-auto flex items-center justify-center mb-4">
-                <i id="modal-icon" data-lucide="info" class="w-6 h-6"></i>
-            </div>
-            <h3 id="modal-title" class="text-lg font-black text-center mb-2">알림</h3>
-            <p id="modal-message" class="text-sm text-gray-400 text-center leading-relaxed mb-6">메시지 내용</p>
-            <button onclick="closeModal()" class="w-full bg-slate-800 hover:bg-slate-700 font-bold py-2.5 rounded-xl transition">닫기</button>
-        </div>
-    </div>
-
-    <!-- Application Logic & Simulation Engine -->
     <script>
-        // Game State
-        const state = {
-            coins: 1000000,
-            initialCoins: 1000000,
-            activeTab: 'tab-stock',
-            selectedStockId: 'SAM',
-            stocks: {
-                'SAM': {
-                    name: '삼성노름 (SAM)',
-                    desc: '우량 가전/소자 반도체 주식. 매우 안전하지만 묵직하게 올라갑니다.',
-                    price: 15000,
-                    history: Array.from({length: 30}, () => 14000 + Math.random() * 2000),
-                    volatility: 0.015,
-                    bias: 0.002, // slight upward bias
-                    owned: 0,
-                    buyPriceSum: 0,
-                },
-                'ANT': {
-                    name: '개미지옥 테크 (ANT)',
-                    desc: '유명 밈 주식. 작전 세력이 상주하며 하루아침에 대박 혹은 알거지가 됩니다.',
-                    price: 3500,
-                    history: Array.from({length: 30}, () => 2500 + Math.random() * 2000),
-                    volatility: 0.08,
-                    bias: 0.001,
-                    owned: 0,
-                    buyPriceSum: 0,
-                },
-                'DOG': {
-                    name: '도지놀이 코인 (DOG)',
-                    desc: '실시간 가상 자산. 일론 놀음머스크의 한마디 트윗에 우주로 갑니다.',
-                    price: 800,
-                    history: Array.from({length: 30}, () => 600 + Math.random() * 400),
-                    volatility: 0.05,
-                    bias: 0.0,
-                    owned: 0,
-                    buyPriceSum: 0,
-                },
-                'GOL': {
-                    name: '골드만삭쓰 (GOL)',
-                    desc: '국제 금융 파생기관. 거시경제 뉴스에 굉장히 예민하게 반응합니다.',
-                    price: 45000,
-                    history: Array.from({length: 30}, () => 43000 + Math.random() * 4000),
-                    volatility: 0.02,
-                    bias: 0.003,
-                    owned: 0,
-                    buyPriceSum: 0,
-                },
-                'BIO': {
-                    name: '바이오헤븐 (BIO)',
-                    desc: '암 치료 보조제 임상 통과 소식이 전해지거나 가짜약 판명 시 상폐 직전까지 밀립니다.',
-                    price: 8500,
-                    history: Array.from({length: 30}, () => 7000 + Math.random() * 3000),
-                    volatility: 0.09,
-                    bias: -0.001,
-                    owned: 0,
-                    buyPriceSum: 0,
-                }
+        const I18N = {
+            en: {
+                lobbySubtitle: "Single-player Casino",
+                balance: "Balance",
+                slotsTitle: "Luminarc Slots",
+                slotsDesc: "Align three glowing symbols on the centerline to win huge payouts!",
+                bjTitle: "Royale Blackjack",
+                bjDesc: "Classic 1-on-1 blackjack with intuitive graphics. Beat the dealer!",
+                rouletteTitle: "Lumina Roulette",
+                rouletteDesc: "Spin the neon wheel! Bet on Red, Black, or your lucky number.",
+                vpTitle: "Cyber Video Poker",
+                vpDesc: "Draw 5 cards, choose which to hold, and make the ultimate hand!",
+                baccaratTitle: "Neon Baccarat",
+                baccaratDesc: "Predict Player, Banker, or Tie in this rapid 1-on-1 classic.",
+                hiloTitle: "Hi-Lo Action",
+                hiloDesc: "Guess if the next card is Higher or Lower. Keep the streak alive!",
+                diceTitle: "Neon Dice",
+                diceDesc: "Roll two 3D-styled cyber dice. Predict Over/Under 7 or Exact Doubles!",
+                backToLobby: "Back to Lobby",
+                spin: "SPIN",
+                bet: "Bet Amount",
+                maxBet: "MAX BET",
+                hit: "HIT",
+                stand: "STAND",
+                double: "DOUBLE",
+                deal: "DEAL",
+                win: "YOU WIN!",
+                lose: "DEALER WINS!",
+                push: "PUSH (DRAW)",
+                blackjack: "BLACKJACK!",
+                bust: "BUST!",
+                dailyBonus: "Claim +1,000",
+                insufficient: "Insufficient funds!",
+                claimSuccess: "Successfully claimed 1,000 Luminarcs!",
+                dailyCooldown: "Luminarcs are plentiful! Grab bonus when you need.",
+                rules: "Rules & Payouts",
+                slotsRules: "777: 15x | Diamond: 8x | Star: 5x | Crown: 3x | Spade: 2x | Any 2 Pair: 1.5x",
+                bjRules: "Blackjack pays 3:2. Dealer must stand on 17 or higher.",
+                rouletteRules: "Red/Black: 2x | Exact Number Match (0-14): 14x. Low risk, fast turns.",
+                vpRules: "Jacks or Better: 1x | Two Pair: 2x | Triple: 3x | Straight: 4x | Flush: 6x | Full House: 9x | Quad: 25x | Royal Flush: 250x",
+                baccaratRules: "Player: 2x | Banker: 1.95x | Tie: 9x. Highest single digit total closer to 9 wins.",
+                hiloRules: "Correct High/Low guess gives 1.7x multiplier. Push on same rank. Cashout anytime!",
+                diceRules: "Under 7: 2x | Over 7: 2x | Exact 7: 5x. Fun dice roller.",
+                payoutMsg: "Payout: {amount} Luminarcs!",
+                placeBet: "PLACE YOUR BET",
+                playing: "YOUR TURN",
+                dealerTurn: "DEALER PLAYING",
+                claimLowFunds: "Only available when balance is below 5,000!"
             },
-            news: [
-                { text: "삼성노름, 차세대 인공지능 세탁기 대히트 조짐!", target: "SAM", effect: "UP", power: 0.12 },
-                { text: "개미지옥 테크 대표, 주가조작 루머 해명으로 급락세 제어", target: "ANT", effect: "UP", power: 0.25 },
-                { text: "도지놀이 머스크, '도지는 달로 갈 것' 밈 생성 트윗 업로드", target: "DOG", effect: "UP", power: 0.35 },
-                { text: "골드만삭쓰, 가상 이자율 인하 전망 보고서 공개", target: "GOL", effect: "UP", power: 0.06 },
-                { text: "바이오헤븐, 암세포 박멸 임상 2상 성공적 통과 속보!", target: "BIO", effect: "UP", power: 0.40 },
-                { text: "삼성노름, 공장 내 미세 정전으로 반도체 라인 임시 중단", target: "SAM", effect: "DOWN", power: -0.08 },
-                { text: "개미지옥 테크 대표, SNS 계정 돌연 삭제로 런(Run) 의혹 제기", target: "ANT", effect: "DOWN", power: -0.30 },
-                { text: "금융감독원, 도지놀이 코인 시세 조종 주도 세력 엄정 수사 착수", target: "DOG", effect: "DOWN", power: -0.22 },
-                { text: "미국 연준, 금리 인상 장기화 시사로 금융권 전체 급락 우려", target: "GOL", effect: "DOWN", power: -0.07 },
-                { text: "바이오헤븐, 연구원의 원천 데이터 조작 사실 적발로 나락행", target: "BIO", effect: "DOWN", power: -0.45 },
-            ],
-            casino: {
-                hlCurrentCard: { suit: '♥', value: 7, label: '7' },
-                hlStreak: 0
+            ko: {
+                lobbySubtitle: "1인용 카지노 아케이드",
+                balance: "보유 자산",
+                slotsTitle: "루미나크 슬롯",
+                slotsDesc: "빛나는 기호를 가로선에 맞춰서 대박 배당금을 획득하세요!",
+                bjTitle: "로얄 블랙잭",
+                bjDesc: "딜러와 벌이는 고도의 1대1 두뇌 심리 게임! 21을 만들어보세요.",
+                rouletteTitle: "루미나 룰렛",
+                rouletteDesc: "네온 휠 회전! 레드, 블랙, 혹은 운명의 단일 숫자에 걸어보세요.",
+                vpTitle: "사이버 비디오 포커",
+                vpDesc: "5장의 카드를 받고 남길 카드를 선택해 강력한 포커 족보를 완성하세요!",
+                baccaratTitle: "네온 바카라",
+                baccaratDesc: "플레이어, 뱅커, 타이의 승부 예측! 9에 가까운 쪽이 승리합니다.",
+                hiloTitle: "하이로우 액션",
+                hiloDesc: "다음 카드가 현재보다 높을지 낮을지 예측해 연승과 배당을 올리세요!",
+                diceTitle: "네온 다이스",
+                diceDesc: "사이버네틱 디자인의 주사위 두 개를 굴려 합의 값을 맞추어 보세요.",
+                backToLobby: "로비로 돌아가기",
+                spin: "스핀 회전",
+                bet: "베팅 금액",
+                maxBet: "최대 베팅",
+                hit: "히트",
+                stand: "스탠드",
+                double: "더블",
+                deal: "패 분배",
+                win: "플레이어 승리!",
+                lose: "딜러 승리!",
+                push: "무승부 (푸시)",
+                blackjack: "블랙잭!",
+                bust: "버스트!",
+                dailyBonus: "무료 충전 +1,000",
+                insufficient: "보유 루미나크가 부족합니다!",
+                claimSuccess: "1,000 루미나크를 성공적으로 획득했습니다!",
+                dailyCooldown: "이미 잔액이 충분합니다! 5,000 미만일 때 받으실 수 있습니다.",
+                rules: "설명 및 배당률",
+                slotsRules: "777: 15배 | 다이아몬드: 8배 | 별: 5배 | 왕관: 3배 | 스페이드: 2배 | 동일 2개: 1.5배",
+                bjRules: "블랙잭은 1.5배 지급. 딜러는 17 이상에서 반드시 스탠드합니다.",
+                rouletteRules: "레드/블랙: 2배 | 단일 숫자 매치 (0-14): 14배. 회전하는 네온판의 결과를 예측하세요.",
+                vpRules: "Jacks or Better: 1배 | Two Pair: 2배 | 3 of a Kind: 3배 | Straight: 4배 | Flush: 6배 | Full House: 9배 | 4 of a Kind: 25배 | Royal Flush: 250배",
+                baccaratRules: "플레이어: 2배 | 뱅커: 1.95배 | 타이: 9배. 끝자리 수의 합이 9에 가장 가까운 쪽이 승리합니다.",
+                hiloRules: "하이/로우 예측 성공 시 1.7배 배당 지급. 숫자가 같을 시 무승부 유지. 언제든 캐시아웃 가능!",
+                diceRules: "7 미만 (Under): 2배 | 7 초과 (Over): 2배 | 정확히 7: 5배. 간단히 던지는 주사위 게임.",
+                payoutMsg: "획득: {amount} 루미나크!",
+                placeBet: "베팅을 진행해주세요",
+                playing: "당신의 차례입니다",
+                dealerTurn: "딜러가 카드를 받고 있습니다",
+                claimLowFunds: "보유액이 5,000 루미나크 미만일 때만 무료 충전이 가능합니다."
+            },
+            ja: {
+                lobbySubtitle: "シングルカジ노",
+                balance: "所持金",
+                slotsTitle: "ルミナーク・スロット",
+                slotsDesc: "輝くシンボルをセンターラインに揃えて巨万の富を得よう！",
+                bjTitle: "ロイヤル・ブラックジャック",
+                bjDesc: "ディーラーと1対1。知恵を絞って21に最も近い手札を作ろう！",
+                rouletteTitle: "ルミナ・ルーレット",
+                rouletteDesc: "輝くホイールを回そう！赤、黒、またはお気に入りの数字に賭けて挑戦。",
+                vpTitle: "サイバー・ビデオポーカー",
+                vpDesc: "5枚のカードを配り、残すカードを決めて最強の役を目指せ！",
+                baccaratTitle: "ネオン・バカラ",
+                baccaratDesc: "プレイヤー、バンカー、タイを予想！9に近い手が勝つ伝統的なルール。",
+                hiloTitle: "ハイ＆ロー・アクション",
+                hiloDesc: "次のカードが現在の数字より高いか低いかを当てて、連勝を目指せ！",
+                diceTitle: "ネオン・ダイス",
+                diceDesc: "2つのサイコロを振り、合計が7より大きいか小さいかを予測するゲーム.",
+                backToLobby: "ロビーに戻る",
+                spin: "スピン",
+                bet: "賭け金",
+                maxBet: "マックスベット",
+                hit: "ヒット",
+                stand: "スタンド",
+                double: "ダブル",
+                deal: "ディール",
+                win: "あなたの大勝利！",
+                lose: "ディーラーの勝ち！",
+                push: "引き分け！",
+                blackjack: "ブラックジャック！",
+                bust: "バースト！",
+                dailyBonus: "無料獲得 +1,000",
+                insufficient: "ルミナークが不足しています！",
+                claimSuccess: "1,000 루미나크を受け取りました！",
+                dailyCooldown: "十分なルミナークを保有しています！所持金が5,000未満でチャージ可能です。",
+                rules: "配当とルール",
+                slotsRules: "777: 15倍 | ダイヤ: 8倍 | 星: 5倍 | 王冠: 3倍 | スペード: 2倍 | 同一2個: 1.5倍",
+                bjRules: "ブラックジャック配当1.5倍。ディーラーは17以上でスタンドします。",
+                rouletteRules: "赤/黒: 2倍 | 単一数字 (0-14): 14倍。高速回転するホイール結果を予測。",
+                vpRules: "Jacks or Better: 1倍 | Two Pair: 2倍 | Three Card: 3倍 | Straight: 4倍 | Flush: 6倍 | Full House: 9倍 | Four Card: 25倍 | Royal Flush: 250倍",
+                baccaratRules: "プレイヤー: 2倍 | バンカー: 1.95倍 | タイ: 9倍。カードの合計値の下一桁が9に近い方が勝利します。",
+                hiloRules: "予想成功で1.7倍獲得。カード同値はプッシュ(引き分け)。いつでもキャッシューアウト可能！",
+                diceRules: "7未満: 2倍 | 7超過: 2倍 | ちょうど7: 5倍。サイバーダイス転がし。",
+                payoutMsg: "配当: {amount} ル미나크!",
+                placeBet: "ベット額を設定してください",
+                playing: "あなたのプレイ順です",
+                dealerTurn: "ディーラーが引いています",
+                claimLowFunds: "所持ル미ナークが5,000未満の場合のみ無料補給が可能です。"
             }
         };
 
-        // Initialize App
-        window.onload = function() {
-            lucide.createIcons();
-            updateUI();
-            calculateTradeEstimate();
-            initChart();
-            
-            // Start the main game loop for stock ticks
-            setInterval(gameTick, 2000);
-            
-            // Start the random news ticker
-            setInterval(triggerRandomNews, 8000);
-
-            // Responsive chart redraw
-            window.addEventListener('resize', () => {
-                drawChart();
-            });
+        let state = {
+            balance: 15000,
+            lang: 'ko',
+            currentGame: 'lobby',
+            slots: { bet: 100 },
+            blackjack: { bet: 100, deck: [], playerHand: [], dealerHand: [], playing: false },
+            roulette: { bet: 100, betType: 'red', targetNum: 7, spinning: false },
+            videopoker: { bet: 100, deck: [], hand: [], held: [false, false, false, false, false], stage: 'deal' },
+            baccarat: { bet: 100, betType: 'player', playing: false, playerHand: [], bankerHand: [] },
+            hilo: { bet: 100, deck: [], currentCard: null, streak: 0, multiplier: 1.0, playing: false },
+            dice: { bet: 100, betType: 'under', rolling: false }
         };
 
-        // Navigation Tabs Control
-        function switchTab(tabId) {
-            // Hide all
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-            document.querySelectorAll('aside button').forEach(el => {
-                el.classList.remove('text-emerald-400', 'bg-emerald-950/20', 'border', 'border-emerald-800/30');
-                el.classList.add('text-gray-400', 'hover:text-white', 'hover:bg-gray-800/30');
+        // Saved state in LocalStorage if available
+        if (localStorage.getItem('luminarc_casino_balance')) {
+            state.balance = parseInt(localStorage.getItem('luminarc_casino_balance'), 10) || 15000;
+        }
+        if (localStorage.getItem('luminarc_casino_lang')) {
+            state.lang = localStorage.getItem('luminarc_casino_lang') || 'ko';
+        }
+
+        let app = null;
+        let activeScene = null;
+        let particles = [];
+
+        function updateBalanceUI() {
+            document.getElementById('balanceDisplay').innerText = state.balance.toLocaleString();
+            localStorage.setItem('luminarc_casino_balance', state.balance);
+            
+            // Auto-clamp active bets if they exceed new balance limits
+            const currentBet = getActiveBet();
+            if (currentBet > state.balance && state.balance > 0) {
+                setActiveBet(state.balance);
+            }
+        }
+
+        // Helper function to dynamically retrieve bet amount of the active game
+        function getActiveBet() {
+            if (state.currentGame === 'slots') return state.slots.bet;
+            if (state.currentGame === 'blackjack') return state.blackjack.bet;
+            if (state.currentGame === 'roulette') return state.roulette.bet;
+            if (state.currentGame === 'videopoker') return state.videopoker.bet;
+            if (state.currentGame === 'baccarat') return state.baccarat.bet;
+            if (state.currentGame === 'hilo') return state.hilo.bet;
+            if (state.currentGame === 'dice') return state.dice.bet;
+            return 100;
+        }
+
+        // Set active bet with safety limiters
+        function setActiveBet(amount) {
+            let minBet = 10;
+            let maxBet = state.balance;
+            if (amount < minBet) amount = minBet;
+            if (amount > maxBet) amount = maxBet;
+            if (state.balance <= 0) amount = 0;
+
+            if (state.currentGame === 'slots') state.slots.bet = amount;
+            else if (state.currentGame === 'blackjack') state.blackjack.bet = amount;
+            else if (state.currentGame === 'roulette') state.roulette.bet = amount;
+            else if (state.currentGame === 'videopoker') state.videopoker.bet = amount;
+            else if (state.currentGame === 'baccarat') state.baccarat.bet = amount;
+            else if (state.currentGame === 'hilo') state.hilo.bet = amount;
+            else if (state.currentGame === 'dice') state.dice.bet = amount;
+
+            updateBetDisplays(true);
+        }
+
+        // Quick adjust active bet via + / -
+        function adjustActiveBet(amt) {
+            if (isSpinningOrPlaying()) return;
+            let currentBet = getActiveBet();
+            setActiveBet(currentBet + amt);
+        }
+
+        // Direct typed input handler
+        function handleManualBetInput(val) {
+            if (isSpinningOrPlaying()) return;
+            let parsed = parseInt(val, 10);
+            if (isNaN(parsed) || parsed < 10) parsed = 10;
+            if (parsed > state.balance) parsed = state.balance;
+
+            if (state.currentGame === 'slots') state.slots.bet = parsed;
+            else if (state.currentGame === 'blackjack') state.blackjack.bet = parsed;
+            else if (state.currentGame === 'roulette') state.roulette.bet = parsed;
+            else if (state.currentGame === 'videopoker') state.videopoker.bet = parsed;
+            else if (state.currentGame === 'baccarat') state.baccarat.bet = parsed;
+            else if (state.currentGame === 'hilo') state.hilo.bet = parsed;
+            else if (state.currentGame === 'dice') state.dice.bet = parsed;
+
+            updateBetDisplays(false); // Do not force input update during typing to prevent focus cursor jumps
+        }
+
+        // Quick set bet by % of asset
+        function setBetByPercent(percent) {
+            if (isSpinningOrPlaying()) return;
+            let calculated = Math.floor(state.balance * (percent / 100));
+            if (calculated < 10 && state.balance >= 10) calculated = 10;
+            setActiveBet(calculated);
+        }
+
+        // Safety validator to prevent modifications during runtimes
+        function isSpinningOrPlaying() {
+            if (state.currentGame === 'slots' && slotsState && slotsState.spinning) return true;
+            if (state.currentGame === 'blackjack' && state.blackjack.playing) return true;
+            if (state.currentGame === 'roulette' && rouletteState && rouletteState.spinning) return true;
+            if (state.currentGame === 'videopoker' && state.videopoker.stage === 'draw') return true;
+            if (state.currentGame === 'baccarat' && state.baccarat.playing) return true;
+            if (state.currentGame === 'hilo' && state.hilo.playing) return true;
+            if (state.currentGame === 'dice' && diceState && diceState.rolling) return true;
+            return false;
+        }
+
+        // Synchronize all visual bet representations
+        function updateBetDisplays(updateInputs = true) {
+            const bet = getActiveBet();
+
+            // Sync text inputs
+            if (updateInputs) {
+                const inputs = document.querySelectorAll('.direct-bet-input');
+                inputs.forEach(input => {
+                    input.value = bet;
+                });
+            }
+        }
+
+        function changeLanguage(newLang) {
+            state.lang = newLang;
+            localStorage.setItem('luminarc_casino_lang', newLang);
+            document.getElementById('langSelect').value = newLang;
+            
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (I18N[newLang] && I18N[newLang][key]) {
+                    el.textContent = I18N[newLang][key];
+                }
             });
 
-            // Show active
-            document.getElementById(tabId).classList.remove('hidden');
-            state.activeTab = tabId;
+            updateRulesText();
 
-            // Highlight active button
-            const activeBtn = document.getElementById(`btn-${tabId}`);
-            activeBtn.classList.remove('text-gray-400', 'hover:text-white', 'hover:bg-gray-800/30');
-            activeBtn.classList.add('text-emerald-400', 'bg-emerald-950/20', 'border', 'border-emerald-800/30');
-
-            updateUI();
-            if (tabId === 'tab-stock') {
-                setTimeout(drawChart, 50); // Redraw canvas safely
+            if (state.currentGame === 'blackjack' && typeof updateBjTableTexts === 'function') {
+                updateBjTableTexts();
             }
         }
 
-        // Core Stock engine simulation (Random walk model)
-        function gameTick() {
-            for (const symbol in state.stocks) {
-                const s = state.stocks[symbol];
-                const changePercent = (Math.random() - 0.5) * s.volatility + s.bias;
-                
-                const oldPrice = s.price;
-                s.price = Math.round(s.price * (1 + changePercent));
-                if (s.price < 10) s.price = 10; // Avoid total bankruptcy death, leave some floor value
-                
-                // Keep history limited to 30 steps
-                s.history.push(s.price);
-                if (s.history.length > 30) {
-                    s.history.shift();
-                }
-            }
-            
-            updateUI();
-            if (state.activeTab === 'tab-stock') {
-                drawChart();
-            }
-        }
-
-        // Trigger random news events affecting stocks
-        function triggerRandomNews() {
-            const chance = Math.random();
-            if (chance > 0.4) { // 60% chance to have a news flash
-                const event = state.news[Math.floor(Math.random() * state.news.length)];
-                const stock = state.stocks[event.target];
-                
-                // Directly affect stock price
-                const oldPrice = stock.price;
-                stock.price = Math.round(stock.price * (1 + event.power));
-                stock.history[stock.history.length - 1] = stock.price; // Apply to current tick
-                
-                // Display in news ticker
-                const tickerEl = document.getElementById('news-ticker');
-                tickerEl.innerText = `🚨 [속보] ${event.text} (${stock.name.split(' ')[0]} ${event.effect === 'UP' ? '폭등' : '급락'}!)`;
-                
-                // Add highlight blink effect
-                tickerEl.parentElement.classList.add('bg-red-950/60');
-                setTimeout(() => {
-                    tickerEl.parentElement.classList.remove('bg-red-950/60');
-                }, 1000);
-
-                // Quick tick sound to alert player
-                sfx.tick();
-                updateUI();
-            }
-        }
-
-        // Formatter helper
-        function formatNumber(num) {
-            return num.toLocaleString();
-        }
-
-        // Calculate total net worth
-        function getNetWorth() {
-            let stockVal = 0;
-            for (const symbol in state.stocks) {
-                stockVal += state.stocks[symbol].owned * state.stocks[symbol].price;
-            }
-            return state.coins + stockVal;
-        }
-
-        // Global UI Refresh
-        function updateUI() {
-            // Main stats
-            document.getElementById('global-coins').innerText = formatNumber(state.coins);
-            const netWorth = getNetWorth();
-            document.getElementById('global-networth').innerText = formatNumber(netWorth);
-
-            // Stock terminal items update
-            const container = document.getElementById('stock-list-container');
-            container.innerHTML = '';
-
-            for (const symbol in state.stocks) {
-                const s = state.stocks[symbol];
-                const prevPrice = s.history[s.history.length - 2] || s.price;
-                const change = s.price - prevPrice;
-                const changePercent = ((change / prevPrice) * 100).toFixed(2);
-                const isUp = change >= 0;
-
-                const card = document.createElement('div');
-                card.onclick = () => selectStock(symbol);
-                card.className = `p-3.5 rounded-xl border transition duration-150 cursor-pointer ${
-                    state.selectedStockId === symbol 
-                    ? 'bg-slate-800/80 border-emerald-500 neon-glow-green' 
-                    : 'bg-slate-900/40 border-gray-800 hover:border-gray-700'
-                }`;
-
-                card.innerHTML = `
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <div class="flex items-center gap-2">
-                                <span class="text-xs font-bold px-1.5 py-0.5 rounded ${isUp ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'}">${symbol}</span>
-                                <h4 class="font-bold text-sm text-gray-200">${s.name.split(' ')[0]}</h4>
-                            </div>
-                            <span class="text-[10px] text-gray-500">보유: ${s.owned} 주</span>
-                        </div>
-                        <div class="text-right">
-                            <p class="font-bold text-sm font-digital ${isUp ? 'text-emerald-400' : 'text-rose-400'}">₩ ${formatNumber(s.price)}</p>
-                            <span class="text-xs font-semibold ${isUp ? 'text-emerald-500' : 'text-rose-500'}">
-                                ${isUp ? '▲' : '▼'} ${changePercent}%
-                            </span>
-                        </div>
-                    </div>
-                `;
-                container.appendChild(card);
-            }
-
-            // Update Active Stock details
-            const active = state.stocks[state.selectedStockId];
-            document.getElementById('active-stock-symbol').innerText = state.selectedStockId;
-            document.getElementById('active-stock-name').innerText = active.name;
-            document.getElementById('active-stock-desc').innerText = active.desc;
-            document.getElementById('active-stock-price').innerText = `₩ ${formatNumber(active.price)}`;
-            
-            const prevPrice = active.history[active.history.length - 2] || active.price;
-            const change = active.price - prevPrice;
-            const changePercent = ((change / prevPrice) * 100).toFixed(2);
-            const isUp = change >= 0;
-            
-            const changeEl = document.getElementById('active-stock-change');
-            changeEl.innerText = `${isUp ? '+' : ''}${changePercent}% (${isUp ? '▲' : '▼'} ₩${formatNumber(Math.abs(change))})`;
-            changeEl.className = `text-xs font-bold ${isUp ? 'text-emerald-400' : 'text-rose-400'}`;
-
-            // Max Buyable computation
-            const maxBuy = Math.floor(state.coins / active.price);
-            document.getElementById('max-buy-count').innerText = formatNumber(maxBuy);
-
-            // Portfolio display update if on portfolio tab
-            if (state.activeTab === 'tab-portfolio') {
-                updatePortfolioTab(netWorth);
-            }
-        }
-
-        // Change Active Stock in graph terminal
-        function selectStock(symbol) {
-            state.selectedStockId = symbol;
-            updateUI();
-            calculateTradeEstimate();
-            drawChart();
-        }
-
-        // Buy/Sell estimate updater
-        function calculateTradeEstimate() {
-            const amountInput = document.getElementById('trade-amount');
-            let amount = parseInt(amountInput.value) || 0;
-            if (amount < 0) {
-                amount = 0;
-                amountInput.value = 0;
-            }
-            const active = state.stocks[state.selectedStockId];
-            const estimate = amount * active.price;
-            document.getElementById('trade-estimate').innerText = formatNumber(estimate);
-        }
-
-        function setTradePercent(percent) {
-            const active = state.stocks[state.selectedStockId];
-            let targetCount = 0;
-            if (percent === 100) {
-                targetCount = Math.floor(state.coins / active.price);
+        function updateRulesText() {
+            const rulesEl = document.getElementById('rulesDetailText');
+            if (state.currentGame === 'slots') {
+                rulesEl.innerText = I18N[state.lang].slotsRules;
+            } else if (state.currentGame === 'blackjack') {
+                rulesEl.innerText = I18N[state.lang].bjRules;
+            } else if (state.currentGame === 'roulette') {
+                rulesEl.innerText = I18N[state.lang].rouletteRules;
+            } else if (state.currentGame === 'videopoker') {
+                rulesEl.innerText = I18N[state.lang].vpRules;
+            } else if (state.currentGame === 'baccarat') {
+                rulesEl.innerText = I18N[state.lang].baccaratRules;
+            } else if (state.currentGame === 'hilo') {
+                rulesEl.innerText = I18N[state.lang].hiloRules;
+            } else if (state.currentGame === 'dice') {
+                rulesEl.innerText = I18N[state.lang].diceRules;
             } else {
-                targetCount = Math.floor((state.coins * (percent / 100)) / active.price);
+                rulesEl.innerText = '';
             }
-            document.getElementById('trade-amount').value = targetCount;
-            calculateTradeEstimate();
         }
 
-        // Execute buy/sell orders
-        function executeTrade(type) {
-            const amount = parseInt(document.getElementById('trade-amount').value) || 0;
-            const active = state.stocks[state.selectedStockId];
+        function triggerToast(msg, iconType = 'info') {
+            const toast = document.getElementById('toastNotification');
+            const textEl = document.getElementById('toastMessage');
+            const iconEl = document.getElementById('toastIcon');
+
+            textEl.innerText = msg;
             
-            if (amount <= 0) {
-                showModal("경고", "주문하실 수량이 올바르지 않습니다.", "alert-triangle", "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20");
-                return;
-            }
-
-            if (type === 'BUY') {
-                const totalCost = amount * active.price;
-                if (totalCost > state.coins) {
-                    showModal("한도 초과", "보유하고 있는 코인이 부족합니다.", "wallet", "bg-rose-500/10 text-rose-500 border border-rose-500/20");
-                    return;
-                }
-                
-                state.coins -= totalCost;
-                active.owned += amount;
-                active.buyPriceSum += (amount * active.price);
-                
-                sfx.buy();
-                showModal("매수 성공", `${active.name.split(' ')[0]} ${amount}주를 ₩${formatNumber(totalCost)} 코인에 풀매수하였습니다!`, "trending-up", "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20");
-            } else if (type === 'SELL') {
-                if (amount > active.owned) {
-                    showModal("매도 실패", "보유 주식량보다 매도 청산하려는 양이 많습니다.", "alert-octagon", "bg-rose-500/10 text-rose-500 border border-rose-500/20");
-                    return;
-                }
-
-                const totalEarn = amount * active.price;
-                
-                // Calculate average buy price for proper average deduction
-                const avgBuyPrice = active.buyPriceSum / active.owned;
-                active.owned -= amount;
-                active.buyPriceSum -= (amount * avgBuyPrice);
-                if (active.owned === 0) active.buyPriceSum = 0;
-
-                state.coins += totalEarn;
-                
-                sfx.sell();
-                showModal("매도 완료", `${active.name.split(' ')[0]} ${amount}주를 청산하여 ₩${formatNumber(totalEarn)} 코인을 회수했습니다!`, "trending-down", "bg-blue-500/10 text-blue-400 border border-blue-500/20");
-            }
-
-            updateUI();
-            calculateTradeEstimate();
-        }
-
-        // Canvas Charting
-        let canvas, ctx;
-        function initChart() {
-            canvas = document.getElementById('stock-chart');
-            ctx = canvas.getContext('2d');
-            setTimeout(drawChart, 100);
-        }
-
-        function drawChart() {
-            if (!canvas || !ctx) return;
-
-            // Make sure canvas size responsive
-            const rect = canvas.parentNode.getBoundingClientRect();
-            canvas.width = rect.width;
-            canvas.height = rect.height;
-
-            const active = state.stocks[state.selectedStockId];
-            const data = active.history;
-            const w = canvas.width;
-            const h = canvas.height;
-
-            ctx.clearRect(0, 0, w, h);
-
-            // Find scale limits
-            const maxVal = Math.max(...data) * 1.05;
-            const minVal = Math.min(...data) * 0.95;
-            const valDiff = maxVal - minVal;
-
-            // Draw horizontal grid line
-            ctx.strokeStyle = '#1E293B';
-            ctx.lineWidth = 1;
-            for (let i = 1; i <= 4; i++) {
-                const gridY = (h / 5) * i;
-                ctx.beginPath();
-                ctx.moveTo(0, gridY);
-                ctx.lineTo(w, gridY);
-                ctx.stroke();
-
-                // Draw price label background & text inside grid
-                const labelVal = Math.round(maxVal - (valDiff / 5) * i);
-                ctx.fillStyle = '#475569';
-                ctx.font = '10px Orbitron';
-                ctx.fillText(`₩${formatNumber(labelVal)}`, 8, gridY - 4);
-            }
-
-            // Draw stock line path
-            const points = data.map((val, idx) => {
-                const x = (w / (data.length - 1)) * idx;
-                const y = h - ((val - minVal) / valDiff) * h;
-                return {x, y, val};
-            });
-
-            // Trend determination
-            const firstPrice = data[0];
-            const lastPrice = data[data.length - 1];
-            const isUpTrend = lastPrice >= firstPrice;
-            const strokeColor = isUpTrend ? '#10B981' : '#EF4444';
-            const fillColor = isUpTrend ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)';
-
-            // Draw filled gradient under graph
-            ctx.beginPath();
-            ctx.moveTo(0, h);
-            points.forEach(p => ctx.lineTo(p.x, p.y));
-            ctx.lineTo(w, h);
-            ctx.closePath();
-            ctx.fillStyle = fillColor;
-            ctx.fill();
-
-            // Draw stroke line
-            ctx.beginPath();
-            ctx.moveTo(points[0].x, points[0].y);
-            for (let i = 1; i < points.length; i++) {
-                ctx.lineTo(points[i].x, points[i].y);
-            }
-            ctx.strokeStyle = strokeColor;
-            ctx.lineWidth = 2.5;
-            ctx.stroke();
-
-            // Draw current price dot highlight
-            const lastP = points[points.length - 1];
-            ctx.beginPath();
-            ctx.arc(lastP.x, lastP.y, 4.5, 0, 2 * Math.PI);
-            ctx.fillStyle = strokeColor;
-            ctx.fill();
-        }
-
-        // Casino - High-Low
-        function playHighLow(prediction) {
-            const betInput = document.getElementById('hl-bet');
-            const bet = parseInt(betInput.value) || 0;
-
-            if (bet <= 0 || bet > state.coins) {
-                showModal("배팅 한도 오류", "보유 코인이 부족하거나 유효하지 않은 액수입니다.", "alert-triangle", "bg-red-500/10 text-red-500 border border-red-500/20");
-                return;
-            }
-
-            // Play Synth click sound
-            sfx.tick();
-
-            // Generate new card
-            const suits = ['♥', '♦', '♣', '♠'];
-            const nextSuit = suits[Math.floor(Math.random() * suits.length)];
-            const nextVal = Math.floor(Math.random() * 13) + 1; // 1 to 13 (A to K)
-            
-            const cardLabels = {1:'A', 11:'J', 12:'Q', 13:'K'};
-            const nextLabel = cardLabels[nextVal] || nextVal.toString();
-
-            const currentVal = state.casino.hlCurrentCard.value;
-            let outcome = "TIE";
-
-            if (nextVal > currentVal) outcome = "HIGH";
-            if (nextVal < currentVal) outcome = "LOW";
-
-            let won = false;
-            if (outcome === prediction || (outcome === "TIE" && Math.random() > 0.5)) {
-                won = true;
-            }
-
-            // Update card elements visually
-            const cardDisp = document.getElementById('hl-card-display');
-            cardDisp.innerText = `${nextSuit} ${nextLabel}`;
-            cardDisp.className = `w-16 h-24 bg-gradient-to-tr from-slate-800 to-slate-900 border-2 rounded-xl flex flex-col items-center justify-center text-2xl font-black font-digital shadow-lg ${
-                ['♥','♦'].includes(nextSuit) ? 'text-rose-500 border-rose-500/50' : 'text-slate-200 border-slate-700'
-            }`;
-
-            if (won) {
-                state.casino.hlStreak++;
-                const multiplier = 1.8 + (state.casino.hlStreak * 0.1);
-                const winCoins = Math.round(bet * (multiplier - 1));
-                state.coins += winCoins;
-                
-                sfx.win();
-                document.getElementById('hl-status').innerText = `성공! ${state.casino.hlStreak}연승 중! [보너스 배율: ${multiplier.toFixed(1)}x]`;
-                showModal("하이로우 적중!", `축하합니다! 카드가 예측에 적중했습니다.\n수익금 +${formatNumber(winCoins)} 코인!`, "sparkles", "bg-amber-500/10 text-amber-400 border border-amber-500/20");
+            let svgMarkup = '';
+            if (iconType === 'success') {
+                svgMarkup = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`;
+                toast.firstElementChild.className = "bg-slate-900/95 border-2 border-emerald-500 rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center space-x-3 text-slate-100";
+            } else if (iconType === 'error') {
+                svgMarkup = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>`;
+                toast.firstElementChild.className = "bg-slate-900/95 border-2 border-rose-500 rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center space-x-3 text-slate-100";
             } else {
-                state.casino.hlStreak = 0;
-                state.coins -= bet;
-                
-                sfx.lose();
-                document.getElementById('hl-status').innerText = `연승 실패! 신규 게임을 시작합니다.`;
-                showModal("낙첨...", `아쉽습니다! 예측이 빗나갔습니다.\n-${formatNumber(bet)} 코인이 증발했습니다.`, "thumbs-down", "bg-rose-500/10 text-rose-500 border border-rose-500/20");
+                svgMarkup = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`;
+                toast.firstElementChild.className = "bg-slate-900/95 border-2 border-amber-500 rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center space-x-3 text-slate-100";
             }
 
-            // Update local save
-            state.casino.hlCurrentCard = { suit: nextSuit, value: nextVal, label: nextLabel };
-            updateUI();
-        }
+            iconEl.innerHTML = svgMarkup;
+            toast.classList.remove('translate-x-80', 'opacity-0');
+            toast.classList.add('translate-x-0', 'opacity-100');
 
-        // Casino - Coin Flip (50% Chance)
-        function playCoinFlip(prediction) {
-            const betInput = document.getElementById('coin-bet');
-            const bet = parseInt(betInput.value) || 0;
-
-            if (bet <= 0 || bet > state.coins) {
-                showModal("배팅 한도 오류", "보유 코인이 부족하거나 유효하지 않은 액수입니다.", "alert-triangle", "bg-red-500/10 text-red-500 border border-red-500/20");
-                return;
-            }
-
-            const coinVisual = document.getElementById('coin-visual');
-            const coinStatus = document.getElementById('coin-status');
-
-            // Roll flip animation class simulation
-            coinVisual.style.transform = "rotateY(720deg)";
-            coinVisual.style.transition = "transform 0.6s ease-out";
-            
             setTimeout(() => {
-                const flipResult = Math.random() > 0.5 ? "HEADS" : "TAILS";
-                const isHeads = flipResult === "HEADS";
-                
-                coinVisual.style.transform = "rotateY(0deg)";
-                coinVisual.style.transition = "none";
-                coinVisual.innerText = isHeads ? "앞" : "뒤";
+                toast.classList.add('translate-x-80', 'opacity-0');
+                toast.classList.remove('translate-x-0', 'opacity-100');
+            }, 3000);
+        }
 
-                if (prediction === flipResult) {
-                    state.coins += bet;
-                    sfx.win();
-                    coinStatus.innerText = "승리! 2.0x 획득!";
-                    showModal("홀짝 승리!", `축하합니다! 정확히 동전의 ${isHeads ? '앞면' : '뒷면'}이 나왔습니다. +${formatNumber(bet)} 코인!`, "smile", "bg-amber-500/10 text-amber-400 border border-amber-500/20");
+        function claimBonus() {
+            if (state.balance >= 5000) {
+                triggerToast(I18N[state.lang].claimLowFunds, 'error');
+                return;
+            }
+            state.balance += 1000;
+            updateBalanceUI();
+            triggerToast(I18N[state.lang].claimSuccess, 'success');
+            
+            if (app && app.stage) {
+                createExplosion(app.screen.width / 2, app.screen.height / 2, 40);
+            }
+        }
+
+        function initPixiApp() {
+            if (app) return;
+
+            const container = document.getElementById('pixiCanvasContainer');
+            
+            app = new PIXI.Application({
+                width: 800,
+                height: 450,
+                backgroundColor: 0x070b19,
+                resolution: window.devicePixelRatio || 1,
+                autoDensity: true,
+                antialias: true
+            });
+
+            app.view.style.width = '100%';
+            app.view.style.height = '100%';
+            app.view.style.display = 'block';
+            container.appendChild(app.view);
+
+            app.ticker.add((delta) => {
+                updateTickers(delta);
+            });
+        }
+
+        function playGame(gameType) {
+            state.currentGame = gameType;
+            initPixiApp();
+
+            document.getElementById('lobbyView').classList.add('hidden');
+            document.getElementById('gamePlayView').classList.remove('hidden');
+
+            document.getElementById('slotsControls').classList.add('hidden');
+            document.getElementById('blackjackControls').classList.add('hidden');
+            document.getElementById('rouletteControls').classList.add('hidden');
+            document.getElementById('videopokerControls').classList.add('hidden');
+            document.getElementById('baccaratControls').classList.add('hidden');
+            document.getElementById('hiloControls').classList.add('hidden');
+            document.getElementById('diceControls').classList.add('hidden');
+
+            while (app.stage.children.length > 0) {
+                app.stage.removeChildAt(0);
+            }
+            activeScene = new PIXI.Container();
+            app.stage.addChild(activeScene);
+
+            if (gameType === 'slots') {
+                document.getElementById('slotsControls').classList.remove('hidden');
+                setupSlotsScene();
+            } else if (gameType === 'blackjack') {
+                document.getElementById('blackjackControls').classList.remove('hidden');
+                setupBlackjackScene();
+            } else if (gameType === 'roulette') {
+                document.getElementById('rouletteControls').classList.remove('hidden');
+                setupRouletteScene();
+            } else if (gameType === 'videopoker') {
+                document.getElementById('videopokerControls').classList.remove('hidden');
+                setupVideoPokerScene();
+            } else if (gameType === 'baccarat') {
+                document.getElementById('baccaratControls').classList.remove('hidden');
+                setupBaccaratScene();
+            } else if (gameType === 'hilo') {
+                document.getElementById('hiloControls').classList.remove('hidden');
+                setupHiloScene();
+            } else if (gameType === 'dice') {
+                document.getElementById('diceControls').classList.remove('hidden');
+                setupDiceScene();
+            }
+
+            updateRulesText();
+            updateBetDisplays(true); // Sync displays on game launch
+        }
+
+        function goToLobby() {
+            state.currentGame = 'lobby';
+            document.getElementById('gamePlayView').classList.add('hidden');
+            document.getElementById('lobbyView').classList.remove('hidden');
+            
+            if (app) {
+                while (app.stage.children.length > 0) {
+                    app.stage.removeChildAt(0);
+                }
+                activeScene = null;
+            }
+        }
+
+        function updateTickers(delta) {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx * delta;
+                p.y += p.vy * delta;
+                p.vy += p.gravity * delta;
+                p.rotation += p.vRot * delta;
+                p.alpha -= 0.015 * delta;
+
+                if (p.alpha <= 0 || p.y > app.screen.height + 20) {
+                    app.stage.removeChild(p);
+                    particles.splice(i, 1);
+                }
+            }
+
+            if (state.currentGame === 'slots' && slotsState && slotsState.spinning) {
+                slotsState.reels.forEach((reel, rIdx) => {
+                    if (reel.isSpinning) {
+                        reel.spinTime += app.ticker.elapsedMS;
+                        reel.slots.forEach(slotContainer => {
+                            if (Math.random() > 0.4) {
+                                const randSymbolId = Math.floor(Math.random() * 5);
+                                drawSlotSymbolInContainer(slotContainer, randSymbolId);
+                            }
+                        });
+                        if (reel.spinTime >= reel.stopDelay) {
+                            reel.isSpinning = false;
+                            const targetIdxs = slotsState.targetSymbols[rIdx];
+                            reel.slots.forEach((slotContainer, slotIdx) => {
+                                drawSlotSymbolInContainer(slotContainer, targetIdxs[slotIdx]);
+                            });
+                            reel.slotsContainer.y = -10;
+                            reel.slotsContainer.filters = [];
+                            if (rIdx === 2) {
+                                slotsState.spinning = false;
+                                document.getElementById('spinBtn').disabled = false;
+                                document.getElementById('spinBtn').classList.remove('opacity-50');
+                                evaluateSlotsPayout();
+                            }
+                        }
+                    } else {
+                        if (reel.slotsContainer.y < 0) {
+                            reel.slotsContainer.y += 1 * delta;
+                        }
+                    }
+                });
+            }
+
+            if (state.currentGame === 'roulette' && rouletteState && rouletteState.spinning) {
+                rouletteState.speed *= 0.982;
+                rouletteState.wheelContainer.rotation += rouletteState.speed * delta;
+
+                if (rouletteState.speed < 0.002) {
+                    rouletteState.spinning = false;
+                    rouletteState.speed = 0;
+                    document.getElementById('rouletteSpinBtn').disabled = false;
+                    document.getElementById('rouletteSpinBtn').classList.remove('opacity-50');
+                    evaluateRoulettePayout();
+                }
+            }
+
+            if (state.currentGame === 'dice' && diceState && diceState.rolling) {
+                diceState.rollTimer += app.ticker.elapsedMS;
+                if (Math.random() > 0.5) {
+                    drawDiceOnCanvas(1, Math.floor(Math.random() * 6) + 1);
+                    drawDiceOnCanvas(2, Math.floor(Math.random() * 6) + 1);
+                }
+
+                if (diceState.rollTimer >= 1500) {
+                    diceState.rolling = false;
+                    document.getElementById('diceRollBtn').disabled = false;
+                    document.getElementById('diceRollBtn').classList.remove('opacity-50');
+                    evaluateDicePayout();
+                }
+            }
+
+            if (activeBjAnims.length > 0) {
+                for (let i = activeBjAnims.length - 1; i >= 0; i--) {
+                    const anim = activeBjAnims[i];
+                    anim.t += 0.05 * delta;
+                    if (anim.t >= 1) {
+                        anim.t = 1;
+                        anim.sprite.x = anim.targetX;
+                        anim.sprite.y = anim.targetY;
+                        if (anim.onComplete) anim.onComplete();
+                        activeBjAnims.splice(i, 1);
+                    } else {
+                        const ease = anim.t * anim.t * (3 - 2 * anim.t);
+                        anim.sprite.x = anim.startX + (anim.targetX - anim.startX) * ease;
+                        anim.sprite.y = anim.startY + (anim.targetY - anim.startY) * ease;
+                    }
+                }
+            }
+        }
+
+        function createExplosion(x, y, count = 30) {
+            for (let i = 0; i < count; i++) {
+                const p = new PIXI.Graphics();
+                const isStar = Math.random() > 0.4;
+                const colors = [0xffd700, 0xec4899, 0x3b82f6, 0x10b981];
+                const randCol = colors[Math.floor(Math.random() * colors.length)];
+                
+                p.beginFill(randCol);
+                if (isStar) {
+                    p.drawStar ? p.drawStar(0, 0, 5, 8, 4) : p.drawCircle(0, 0, 6);
                 } else {
-                    state.coins -= bet;
-                    sfx.lose();
-                    coinStatus.innerText = "패배... 다음 기회에";
-                    showModal("패배", `틀렸습니다! 동전은 ${isHeads ? '앞면' : '뒷면'}이었습니다. -${formatNumber(bet)} 코인!`, "frown", "bg-rose-500/10 text-rose-500 border border-rose-500/20");
+                    p.drawCircle(0, 0, Math.random() * 4 + 3);
                 }
-                updateUI();
-            }, 600);
+                p.endFill();
+
+                p.x = x;
+                p.y = y;
+                p.vx = (Math.random() - 0.5) * 8;
+                p.vy = -Math.random() * 10 - 4;
+                p.gravity = 0.35;
+                p.alpha = 1;
+                p.rotation = Math.random() * Math.PI * 2;
+                p.vRot = (Math.random() - 0.5) * 0.15;
+
+                app.stage.addChild(p);
+                particles.push(p);
+            }
         }
 
-        // Casino - Slots
-        function spinSlots() {
-            const betInput = document.getElementById('slot-bet');
-            const bet = parseInt(betInput.value) || 0;
+        function drawCardSprite(rank, suit, isFaceUp = true) {
+            const card = new PIXI.Container();
 
-            if (bet <= 0 || bet > state.coins) {
-                showModal("배팅 한도 오류", "보유 코인이 부족하거나 유효하지 않은 액수입니다.", "alert-triangle", "bg-red-500/10 text-red-500 border border-red-500/20");
+            const shadow = new PIXI.Graphics();
+            shadow.beginFill(0x000000, 0.35);
+            shadow.drawRoundedRect(4, 4, 75, 110, 8);
+            shadow.endFill();
+            card.addChild(shadow);
+
+            const face = new PIXI.Graphics();
+            if (isFaceUp) {
+                face.beginFill(0xfafafa);
+                face.lineStyle(1.5, 0x94a3b8, 1);
+                face.drawRoundedRect(0, 0, 75, 110, 8);
+                face.endFill();
+                card.addChild(face);
+
+                const isRed = (suit === '♥' || suit === '♦');
+                const col = isRed ? '#ef4444' : '#1e293b';
+
+                const styleRank = new PIXI.TextStyle({
+                    fontFamily: 'Inter',
+                    fontSize: 16,
+                    fontWeight: '800',
+                    fill: col
+                });
+
+                const styleSuit = new PIXI.TextStyle({
+                    fontFamily: 'Inter',
+                    fontSize: 22,
+                    fill: col
+                });
+
+                const tRank = new PIXI.Text(rank, styleRank);
+                tRank.position.set(6, 4);
+                card.addChild(tRank);
+
+                const tSuit = new PIXI.Text(suit, styleSuit);
+                tSuit.position.set(6, 20);
+                card.addChild(tSuit);
+
+                const centerSuit = new PIXI.Text(suit, new PIXI.TextStyle({
+                    fontFamily: 'Inter',
+                    fontSize: 42,
+                    fill: col
+                }));
+                centerSuit.anchor.set(0.5);
+                centerSuit.position.set(37, 65);
+                card.addChild(centerSuit);
+            } else {
+                face.beginFill(0x1e1b4b);
+                face.lineStyle(1.5, 0xf59e0b, 1);
+                face.drawRoundedRect(0, 0, 75, 110, 8);
+                face.endFill();
+                card.addChild(face);
+
+                const pat = new PIXI.Graphics();
+                pat.lineStyle(1, 0x4338ca, 0.6);
+                pat.moveTo(10, 10); pat.lineTo(65, 100);
+                pat.moveTo(65, 10); pat.lineTo(10, 100);
+                pat.drawCircle(37, 55, 15);
+                card.addChild(pat);
+            }
+
+            return card;
+        }
+
+        function slideCard(rank, suit, targetX, targetY, isFaceUp, onComplete) {
+            const cardSprite = drawCardSprite(rank, suit, isFaceUp);
+            cardSprite.position.set(680, 40);
+            activeScene.addChild(cardSprite);
+
+            activeBjAnims.push({
+                sprite: cardSprite,
+                startX: 680,
+                startY: 40,
+                targetX: targetX,
+                targetY: targetY,
+                t: 0,
+                onComplete: onComplete
+            });
+
+            return cardSprite;
+        }
+
+        function getDeck() {
+            const suits = ['♠', '♥', '♦', '♣'];
+            const ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+            let newDeck = [];
+            for (let s of suits) {
+                for (let r of ranks) {
+                    newDeck.push({ rank: r, suit: s });
+                }
+            }
+            for (let i = newDeck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newDeck[i], newDeck[j]] = [newDeck[j], newDeck[i]];
+            }
+            return newDeck;
+        }
+
+        // ==========================================
+        // 0. SLOTS GAME LOGIC
+        // ==========================================
+        const SYMBOL_STYLING = [
+            { id: 0, text: '7', color: '#f43f5e', glow: '#fda4af', weight: 1 },
+            { id: 1, text: '♦', color: '#06b6d4', glow: '#67e8f9', weight: 2 },
+            { id: 2, text: '★', color: '#f59e0b', glow: '#fde047', weight: 3 },
+            { id: 3, text: '♚', color: '#8b5cf6', glow: '#c084fc', weight: 4 },
+            { id: 4, text: '♠', color: '#10b981', glow: '#6ee7b7', weight: 5 }
+        ];
+
+        let slotsState = null;
+
+        function setupSlotsScene() {
+            slotsState = {
+                spinning: false,
+                reels: [],
+                targetSymbols: [[0,0,0], [0,0,0], [0,0,0]]
+            };
+
+            const slotArea = new PIXI.Graphics();
+            slotArea.lineStyle(4, 0x1e293b, 1);
+            slotArea.beginFill(0x090d1a);
+            slotArea.drawRoundedRect(50, 40, 700, 360, 24);
+            slotArea.endFill();
+            activeScene.addChild(slotArea);
+
+            const labelStyle = new PIXI.TextStyle({
+                fontFamily: 'Orbitron',
+                fontSize: 15,
+                fontWeight: '900',
+                fill: '#f43f5e',
+                letterSpacing: 4
+            });
+            const mainLabel = new PIXI.Text('L U M I N A   S L O T S', labelStyle);
+            mainLabel.anchor.set(0.5, 0.5);
+            mainLabel.x = 400;
+            mainLabel.y = 25;
+            activeScene.addChild(mainLabel);
+
+            const reelWidth = 180;
+            const reelHeight = 280;
+            const reelXStart = 110;
+            const reelY = 80;
+
+            for (let rIdx = 0; rIdx < 3; rIdx++) {
+                const reelX = reelXStart + rIdx * 210;
+
+                const laneMask = new PIXI.Graphics();
+                laneMask.beginFill(0xffffff);
+                laneMask.drawRoundedRect(reelX, reelY, reelWidth, reelHeight, 16);
+                laneMask.endFill();
+                activeScene.addChild(laneMask);
+
+                const laneBg = new PIXI.Graphics();
+                laneBg.beginFill(0x05070f);
+                laneBg.lineStyle(2, 0x334155, 1);
+                laneBg.drawRoundedRect(reelX, reelY, reelWidth, reelHeight, 16);
+                laneBg.endFill();
+                activeScene.addChild(laneBg);
+
+                const slotsContainer = new PIXI.Container();
+                slotsContainer.position.set(reelX, reelY);
+                slotsContainer.mask = laneMask;
+                activeScene.addChild(slotsContainer);
+
+                const slots = [];
+                for (let sIdx = 0; sIdx < 3; sIdx++) {
+                    const slotObj = new PIXI.Container();
+                    slotObj.position.set(reelWidth / 2, 45 + sIdx * 90);
+                    slotsContainer.addChild(slotObj);
+
+                    const randSym = Math.floor(Math.random() * 5);
+                    drawSlotSymbolInContainer(slotObj, randSym);
+                    slots.push(slotObj);
+                }
+
+                slotsState.reels.push({
+                    slotsContainer: slotsContainer,
+                    slots: slots,
+                    isSpinning: false,
+                    spinTime: 0,
+                    stopDelay: 0
+                });
+            }
+
+            const payline = new PIXI.Graphics();
+            payline.lineStyle(3, 0xf43f5e, 0.7);
+            payline.moveTo(60, 220);
+            payline.lineTo(740, 220);
+            activeScene.addChild(payline);
+        }
+
+        function drawSlotSymbolInContainer(container, symbolId) {
+            while (container.children.length > 0) {
+                container.removeChildAt(0);
+            }
+            const symMeta = SYMBOL_STYLING[symbolId];
+            const symbolStyle = new PIXI.TextStyle({
+                fontFamily: 'Inter, Arial, sans-serif',
+                fontSize: 52,
+                fontWeight: '900',
+                fill: symMeta.color,
+                stroke: '#ffffff',
+                strokeThickness: 2,
+                dropShadow: true,
+                dropShadowColor: symMeta.glow,
+                dropShadowBlur: 14,
+                dropShadowDistance: 0
+            });
+            const txt = new PIXI.Text(symMeta.text, symbolStyle);
+            txt.anchor.set(0.5);
+            container.addChild(txt);
+            container.symbolId = symbolId;
+        }
+
+        function triggerSlotsSpin() {
+            if (slotsState.spinning) return;
+            const betAmt = state.slots.bet;
+            if (state.balance < betAmt) {
+                triggerToast(I18N[state.lang].insufficient, 'error');
+                return;
+            }
+            state.balance -= betAmt;
+            updateBalanceUI();
+            slotsState.spinning = true;
+
+            document.getElementById('spinBtn').disabled = true;
+            document.getElementById('spinBtn').classList.add('opacity-50');
+
+            const outcomes = [];
+            for (let r = 0; r < 3; r++) {
+                const laneSymbols = [];
+                for (let s = 0; s < 3; s++) {
+                    const roll = Math.random() * 15;
+                    let selectedSymId = 4;
+                    if (roll < 1) selectedSymId = 0;
+                    else if (roll < 3) selectedSymId = 1;
+                    else if (roll < 6) selectedSymId = 2;
+                    else if (roll < 10) selectedSymId = 3;
+                    laneSymbols.push(selectedSymId);
+                }
+                outcomes.push(laneSymbols);
+            }
+            slotsState.targetSymbols = outcomes;
+
+            slotsState.reels.forEach((reel, rIdx) => {
+                reel.isSpinning = true;
+                reel.spinTime = 0;
+                reel.stopDelay = 1300 + rIdx * 750;
+                const blur = new PIXI.filters.BlurFilter();
+                blur.blurX = 0;
+                blur.blurY = 16;
+                reel.slotsContainer.filters = [blur];
+            });
+        }
+
+        function evaluateSlotsPayout() {
+            const middleSymbols = [
+                slotsState.reels[0].slots[1].symbolId,
+                slotsState.reels[1].slots[1].symbolId,
+                slotsState.reels[2].slots[1].symbolId
+            ];
+            const s0 = middleSymbols[0];
+            const s1 = middleSymbols[1];
+            const s2 = middleSymbols[2];
+
+            let multiplier = 0;
+            let winText = "";
+
+            if (s0 === s1 && s1 === s2) {
+                if (s0 === 0) { multiplier = 15; winText = "7 7 7 JACKPOT!"; }
+                else if (s0 === 1) { multiplier = 8; winText = "DIAMOND MATCH!"; }
+                else if (s0 === 2) { multiplier = 5; winText = "STAR MATCH!"; }
+                else if (s0 === 3) { multiplier = 3; winText = "CROWN MATCH!"; }
+                else if (s0 === 4) { multiplier = 2; winText = "SPADE MATCH!"; }
+            } else if (s0 === s1 || s1 === s2 || s0 === s2) {
+                multiplier = 1.5;
+                winText = "DOUBLE COOLDOWN";
+            }
+
+            if (multiplier > 0) {
+                const payout = Math.floor(state.slots.bet * multiplier);
+                state.balance += payout;
+                updateBalanceUI();
+                createExplosion(400, 220, 35);
+                triggerToast(`${winText}! +${payout.toLocaleString()} LMC`, 'success');
+            }
+        }
+
+
+        // ==========================================
+        // 1. BLACKJACK GAME LOGIC
+        // ==========================================
+        let activeBjAnims = [];
+        let bjTextStatus, bjTextPlayerScore, bjTextDealerScore;
+
+        function setupBlackjackScene() {
+            state.blackjack.playing = false;
+            state.blackjack.playerHand = [];
+            state.blackjack.dealerHand = [];
+
+            const felt = new PIXI.Graphics();
+            felt.beginFill(0x0c2540);
+            felt.drawRect(0, 0, 800, 450);
+            felt.endFill();
+            activeScene.addChild(felt);
+
+            const borders = new PIXI.Graphics();
+            borders.lineStyle(3, 0x1e3a8a, 0.8);
+            borders.drawRoundedRect(15, 15, 770, 420, 20);
+            borders.lineStyle(1.5, 0x1e3a8a, 0.5);
+            borders.drawCircle(400, -50, 240);
+            activeScene.addChild(borders);
+
+            const feltStyle = new PIXI.TextStyle({
+                fontFamily: 'Orbitron',
+                fontSize: 13,
+                fontWeight: '700',
+                fill: '#2563eb',
+                letterSpacing: 2
+            });
+
+            const textRules = new PIXI.Text('BLACKJACK PAYS 3 TO 2', feltStyle);
+            textRules.anchor.set(0.5);
+            textRules.x = 400;
+            textRules.y = 205;
+            activeScene.addChild(textRules);
+
+            const ruleDealer = new PIXI.Text('DEALER STANDS ON 17 OR HIGHER', {
+                fontFamily: 'Inter',
+                fontSize: 10,
+                fontWeight: '600',
+                fill: '#1e40af'
+            });
+            ruleDealer.anchor.set(0.5);
+            ruleDealer.x = 400;
+            ruleDealer.y = 230;
+            activeScene.addChild(ruleDealer);
+
+            const scoreStyle = new PIXI.TextStyle({
+                fontFamily: 'Orbitron',
+                fontSize: 12,
+                fontWeight: '900',
+                fill: '#38bdf8'
+            });
+
+            bjTextStatus = new PIXI.Text(I18N[state.lang].placeBet, scoreStyle);
+            bjTextStatus.anchor.set(0.5);
+            bjTextStatus.x = 400;
+            bjTextStatus.y = 150;
+            activeScene.addChild(bjTextStatus);
+
+            bjTextPlayerScore = new PIXI.Text('', scoreStyle);
+            bjTextPlayerScore.anchor.set(0.5);
+            bjTextPlayerScore.x = 220;
+            bjTextPlayerScore.y = 390;
+            activeScene.addChild(bjTextPlayerScore);
+
+            bjTextDealerScore = new PIXI.Text('', scoreStyle);
+            bjTextDealerScore.anchor.set(0.5);
+            bjTextDealerScore.x = 220;
+            bjTextDealerScore.y = 60;
+            activeScene.addChild(bjTextDealerScore);
+
+            const deckShoe = new PIXI.Graphics();
+            deckShoe.beginFill(0x1e1b4b);
+            deckShoe.lineStyle(2, 0x3b82f6, 1);
+            deckShoe.drawRoundedRect(680, 40, 75, 110, 8);
+            deckShoe.endFill();
+            activeScene.addChild(deckShoe);
+
+            const shoeCap = new PIXI.Text('SHOE', {
+                fontFamily: 'Orbitron',
+                fontSize: 10,
+                fill: '#3b82f6',
+                fontWeight: '900'
+            });
+            shoeCap.anchor.set(0.5);
+            shoeCap.x = 718;
+            shoeCap.y = 95;
+            activeScene.addChild(shoeCap);
+
+            const chipCircle = new PIXI.Graphics();
+            chipCircle.lineStyle(2, 0x3b82f6, 0.4);
+            chipCircle.drawCircle(400, 290, 24);
+            activeScene.addChild(chipCircle);
+
+            resetBjTableUI();
+        }
+
+        function updateBjTableTexts() {
+            if (!app || state.currentGame !== 'blackjack') return;
+            bjTextStatus.text = state.blackjack.playing ? I18N[state.lang].playing : I18N[state.lang].placeBet;
+        }
+
+        function resetBjTableUI() {
+            document.getElementById('bjBetPanel').classList.remove('hidden');
+            document.getElementById('bjPlayPanel').classList.add('hidden');
+            bjTextPlayerScore.text = '';
+            bjTextDealerScore.text = '';
+            bjTextStatus.text = I18N[state.lang].placeBet;
+        }
+
+        function calculateScore(hand) {
+            let score = 0;
+            let aces = 0;
+            for (let card of hand) {
+                if (card.rank === 'A') {
+                    aces++;
+                    score += 11;
+                } else if (['J', 'Q', 'K'].includes(card.rank)) {
+                    score += 10;
+                } else {
+                    score += parseInt(card.rank, 10);
+                }
+            }
+            while (score > 21 && aces > 0) {
+                score -= 10;
+                aces--;
+            }
+            return score;
+        }
+
+        function bjDealHand() {
+            if (state.blackjack.playing) return;
+            const bet = state.blackjack.bet;
+            if (state.balance < bet) {
+                triggerToast(I18N[state.lang].insufficient, 'error');
+                return;
+            }
+            state.balance -= bet;
+            updateBalanceUI();
+
+            setupBlackjackScene();
+            state.blackjack.playing = true;
+            state.blackjack.deck = getDeck();
+
+            document.getElementById('bjBetPanel').classList.add('hidden');
+            document.getElementById('bjPlayPanel').classList.remove('hidden');
+            document.getElementById('doubleBtn').classList.remove('opacity-50');
+            bjTextStatus.text = I18N[state.lang].playing;
+
+            const p1 = state.blackjack.deck.pop();
+            const d1 = state.blackjack.deck.pop();
+            const p2 = state.blackjack.deck.pop();
+            const d2 = state.blackjack.deck.pop();
+
+            state.blackjack.playerHand = [p1, p2];
+            state.blackjack.dealerHand = [d1, d2];
+
+            setTimeout(() => { slideCard(p1.rank, p1.suit, 250, 260, true, () => updateScoresDisplay()); }, 100);
+            setTimeout(() => { slideCard(d1.rank, d1.suit, 250, 75, true, () => updateScoresDisplay()); }, 400);
+            setTimeout(() => { slideCard(p2.rank, p2.suit, 290, 260, true, () => {
+                updateScoresDisplay();
+                if (calculateScore(state.blackjack.playerHand) === 21) {
+                    bjStand();
+                }
+            }); }, 700);
+            setTimeout(() => { state.blackjack.dealerBackCard = slideCard(d2.rank, d2.suit, 290, 75, false); }, 1000);
+        }
+
+        function updateScoresDisplay(revealDealer = false) {
+            const pScore = calculateScore(state.blackjack.playerHand);
+            bjTextPlayerScore.text = `PLAYER: ${pScore}`;
+
+            if (revealDealer) {
+                const dScore = calculateScore(state.blackjack.dealerHand);
+                bjTextDealerScore.text = `DEALER: ${dScore}`;
+            } else {
+                const visibleCard = state.blackjack.dealerHand[0];
+                let score = 0;
+                if (visibleCard.rank === 'A') score = 11;
+                else if (['J','Q','K'].includes(visibleCard.rank)) score = 10;
+                else score = parseInt(visibleCard.rank, 10);
+                bjTextDealerScore.text = `DEALER: ${score} + ?`;
+            }
+        }
+
+        function bjHit() {
+            if (!state.blackjack.playing) return;
+            document.getElementById('doubleBtn').classList.add('opacity-50');
+
+            const nextCard = state.blackjack.deck.pop();
+            state.blackjack.playerHand.push(nextCard);
+
+            const nextIdx = state.blackjack.playerHand.length - 1;
+            const targetX = 250 + nextIdx * 40;
+
+            slideCard(nextCard.rank, nextCard.suit, targetX, 260, true, () => {
+                const score = calculateScore(state.blackjack.playerHand);
+                updateScoresDisplay();
+                if (score > 21) {
+                    resolveBlackjackHand('lose_bust');
+                } else if (score === 21) {
+                    bjStand();
+                }
+            });
+        }
+
+        function bjDouble() {
+            if (!state.blackjack.playing || state.blackjack.playerHand.length !== 2) return;
+            const bet = state.blackjack.bet;
+            if (state.balance < bet) {
+                triggerToast(I18N[state.lang].insufficient, 'error');
+                return;
+            }
+            state.balance -= bet;
+            state.blackjack.bet += bet;
+            updateBalanceUI();
+
+            const nextCard = state.blackjack.deck.pop();
+            state.blackjack.playerHand.push(nextCard);
+
+            slideCard(nextCard.rank, nextCard.suit, 330, 260, true, () => {
+                updateScoresDisplay();
+                const score = calculateScore(state.blackjack.playerHand);
+                if (score > 21) {
+                    resolveBlackjackHand('lose_bust');
+                } else {
+                    bjStand();
+                }
+            });
+        }
+
+        function bjStand() {
+            if (!state.blackjack.playing) return;
+            document.getElementById('bjPlayPanel').classList.add('hidden');
+            bjTextStatus.text = I18N[state.lang].dealerTurn;
+
+            if (state.blackjack.dealerBackCard) {
+                activeScene.removeChild(state.blackjack.dealerBackCard);
+            }
+            const holeCard = state.blackjack.dealerHand[1];
+            const openCard = drawCardSprite(holeCard.rank, holeCard.suit, true);
+            openCard.position.set(290, 75);
+            activeScene.addChild(openCard);
+
+            updateScoresDisplay(true);
+
+            setTimeout(() => { dealerDrawLoop(); }, 800);
+        }
+
+        function dealerDrawLoop() {
+            const dScore = calculateScore(state.blackjack.dealerHand);
+            if (dScore < 17) {
+                const nextCard = state.blackjack.deck.pop();
+                state.blackjack.dealerHand.push(nextCard);
+                const nextIdx = state.blackjack.dealerHand.length - 1;
+                const targetX = 250 + nextIdx * 40;
+
+                slideCard(nextCard.rank, nextCard.suit, targetX, 75, true, () => {
+                    updateScoresDisplay(true);
+                    setTimeout(dealerDrawLoop, 800);
+                });
+            } else {
+                evaluateFinalBlackjackResults();
+            }
+        }
+
+        function evaluateFinalBlackjackResults() {
+            const pScore = calculateScore(state.blackjack.playerHand);
+            const dScore = calculateScore(state.blackjack.dealerHand);
+            if (dScore > 21) resolveBlackjackHand('win_dealer_bust');
+            else if (pScore > dScore) resolveBlackjackHand('win');
+            else if (pScore < dScore) resolveBlackjackHand('lose');
+            else resolveBlackjackHand('push');
+        }
+
+        function resolveBlackjackHand(outcome) {
+            state.blackjack.playing = false;
+            let payoff = 0;
+            let title = "";
+            let notifType = "info";
+
+            const pScore = calculateScore(state.blackjack.playerHand);
+            const isNatural = (pScore === 21 && state.blackjack.playerHand.length === 2);
+
+            if (outcome === 'win' || outcome === 'win_dealer_bust') {
+                payoff = isNatural ? Math.floor(state.blackjack.bet * 2.5) : state.blackjack.bet * 2;
+                title = isNatural ? I18N[state.lang].blackjack : I18N[state.lang].win;
+                notifType = "success";
+            } else if (outcome === 'push') {
+                payoff = state.blackjack.bet;
+                title = I18N[state.lang].push;
+            } else {
+                title = (outcome === 'lose_bust') ? `${I18N[state.lang].bust} ${I18N[state.lang].lose}` : I18N[state.lang].lose;
+                notifType = "error";
+            }
+
+            state.balance += payoff;
+            updateBalanceUI();
+
+            bjTextStatus.text = title;
+            bjTextStatus.style.fill = (notifType === "success") ? '#10b981' : (notifType === "error" ? '#ef4444' : '#3b82f6');
+
+            if (payoff > 0 && outcome !== 'push') {
+                createExplosion(400, 260, 20);
+                triggerToast(I18N[state.lang].payoutMsg.replace('{amount}', payoff.toLocaleString()), 'success');
+            } else {
+                triggerToast(title, notifType);
+            }
+
+            setTimeout(() => { resetBjTableUI(); }, 3500);
+        }
+
+
+        // ==========================================
+        // 2. ROULETTE GAME LOGIC
+        // ==========================================
+        let rouletteState = null;
+
+        function setRouletteBetType(type) {
+            if (rouletteState && rouletteState.spinning) return;
+            state.roulette.betType = type;
+            
+            document.getElementById('rBtnRed').className = (type === 'red') ? "px-3 py-1.5 rounded-lg text-xs font-bold bg-red-600 text-white border border-red-400/40" : "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300";
+            document.getElementById('rBtnBlack').className = (type === 'black') ? "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white border border-slate-700/40" : "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300";
+            document.getElementById('rBtnNum').className = (type === 'num') ? "px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white border border-blue-400/40" : "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300";
+
+            const numInput = document.getElementById('rouletteNumInput');
+            if (type === 'num') {
+                numInput.classList.remove('hidden');
+            } else {
+                numInput.classList.add('hidden');
+            }
+        }
+
+        function setupRouletteScene() {
+            rouletteState = {
+                spinning: false,
+                wheelContainer: null,
+                speed: 0,
+                numbers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+                colors: [0x10b981, 0xef4444, 0x1e293b, 0xef4444, 0x1e293b, 0xef4444, 0x1e293b, 0xef4444, 0x1e293b, 0xef4444, 0x1e293b, 0xef4444, 0x1e293b, 0xef4444, 0x1e293b]
+            };
+
+            const bg = new PIXI.Graphics();
+            bg.beginFill(0x0a0f1d);
+            bg.drawRect(0, 0, 800, 450);
+            bg.endFill();
+            activeScene.addChild(bg);
+
+            const wheelContainer = new PIXI.Container();
+            wheelContainer.position.set(400, 220);
+            activeScene.addChild(wheelContainer);
+            rouletteState.wheelContainer = wheelContainer;
+
+            const outerRing = new PIXI.Graphics();
+            outerRing.lineStyle(10, 0x334155, 1);
+            outerRing.beginFill(0x020617);
+            outerRing.drawCircle(0, 0, 175);
+            outerRing.endFill();
+            wheelContainer.addChild(outerRing);
+
+            const segmentAngle = (Math.PI * 2) / 15;
+            for (let i = 0; i < 15; i++) {
+                const seg = new PIXI.Graphics();
+                seg.beginFill(rouletteState.colors[i]);
+                seg.lineStyle(2, 0xffffff, 0.1);
+                seg.moveTo(0, 0);
+                seg.arc(0, 0, 165, i * segmentAngle, (i + 1) * segmentAngle);
+                seg.closePath();
+                seg.endFill();
+                wheelContainer.addChild(seg);
+
+                const txtAngle = i * segmentAngle + segmentAngle / 2;
+                const txtX = Math.cos(txtAngle) * 135;
+                const txtY = Math.sin(txtAngle) * 135;
+
+                const textStyle = new PIXI.TextStyle({
+                    fontFamily: 'Orbitron',
+                    fontSize: i === 0 ? 16 : 14,
+                    fill: '#ffffff',
+                    fontWeight: '900'
+                });
+                const numText = new PIXI.Text(rouletteState.numbers[i].toString(), textStyle);
+                numText.anchor.set(0.5);
+                numText.x = txtX;
+                numText.y = txtY;
+                numText.rotation = txtAngle + Math.PI / 2;
+                wheelContainer.addChild(numText);
+            }
+
+            const centerCone = new PIXI.Graphics();
+            centerCone.beginFill(0xd97706);
+            centerCone.lineStyle(3, 0xf59e0b, 1);
+            centerCone.drawCircle(0, 0, 35);
+            centerCone.endFill();
+            wheelContainer.addChild(centerCone);
+
+            const pointer = new PIXI.Graphics();
+            pointer.beginFill(0xef4444);
+            pointer.lineStyle(2, 0xffffff, 1);
+            pointer.moveTo(400, 25);
+            pointer.lineTo(385, 5);
+            pointer.lineTo(415, 5);
+            pointer.closePath();
+            pointer.endFill();
+            activeScene.addChild(pointer);
+
+            const scoreStyle = new PIXI.TextStyle({
+                fontFamily: 'Orbitron',
+                fontSize: 14,
+                fontWeight: '900',
+                fill: '#f43f5e'
+            });
+            rouletteStatusText = new PIXI.Text('PLACE YOUR BET & SPIN', scoreStyle);
+            rouletteStatusText.anchor.set(0.5);
+            rouletteStatusText.x = 400;
+            rouletteStatusText.y = 420;
+            activeScene.addChild(rouletteStatusText);
+        }
+
+        function triggerRouletteSpin() {
+            if (rouletteState.spinning) return;
+            const bet = state.roulette.bet;
+            if (state.balance < bet) {
+                triggerToast(I18N[state.lang].insufficient, 'error');
                 return;
             }
 
-            const symbols = ["💎", "🍒", "🍋", "🍀", "🔥", "👑"];
-            const s1 = document.getElementById('slot-1');
-            const s2 = document.getElementById('slot-2');
-            const s3 = document.getElementById('slot-3');
-
-            // Quick synthetic slot sound effect play
-            sfx.tick();
-            
-            // Randomly rolling emoji display simulated delay
-            let ticks = 0;
-            const rollInterval = setInterval(() => {
-                s1.innerText = symbols[Math.floor(Math.random() * symbols.length)];
-                s2.innerText = symbols[Math.floor(Math.random() * symbols.length)];
-                s3.innerText = symbols[Math.floor(Math.random() * symbols.length)];
-                ticks++;
-                if (ticks > 8) {
-                    clearInterval(rollInterval);
-                    resolveSlots(bet);
+            if (state.roulette.betType === 'num') {
+                const val = parseInt(document.getElementById('rouletteNumInput').value, 10);
+                if (isNaN(val) || val < 0 || val > 14) {
+                    triggerToast('Enter valid number (0 - 14)', 'error');
+                    return;
                 }
-            }, 80);
-        }
-
-        function resolveSlots(bet) {
-            const s1 = document.getElementById('slot-1').innerText;
-            const s2 = document.getElementById('slot-2').innerText;
-            const s3 = document.getElementById('slot-3').innerText;
-
-            let winMult = 0;
-            if (s1 === s2 && s2 === s3) {
-                // Triple jackpot!
-                if (s1 === "💎") winMult = 50;
-                else if (s1 === "👑") winMult = 40;
-                else if (s1 === "🔥") winMult = 30;
-                else winMult = 20;
-            } else if (s1 === s2 || s2 === s3 || s1 === s3) {
-                // Double pair
-                winMult = 2.5;
+                state.roulette.targetNum = val;
             }
 
-            if (winMult > 0) {
-                const totalWon = Math.round(bet * (winMult - 1));
-                state.coins += totalWon;
-                sfx.win();
-                document.getElementById('slot-status').innerText = `JACKPOT! ${winMult}배 당첨!`;
-                showModal("대박 잭팟!", `축하합니다!! [${s1} ${s2} ${s3}] 조합 완성으로 총 ${winMult}배 당첨! +${formatNumber(totalWon)} 코인!`, "party-popper", "bg-amber-500/20 text-amber-300 border border-amber-500/40 neon-glow-gold");
+            state.balance -= bet;
+            updateBalanceUI();
+
+            rouletteState.spinning = true;
+            rouletteState.speed = 0.4 + Math.random() * 0.3;
+            rouletteStatusText.text = 'SPINNING WHEEL...';
+
+            document.getElementById('rouletteSpinBtn').disabled = true;
+            document.getElementById('rouletteSpinBtn').classList.add('opacity-50');
+        }
+
+        function evaluateRoulettePayout() {
+            const normalizedRot = (rouletteState.wheelContainer.rotation + Math.PI / 2) % (Math.PI * 2);
+            const invertedRot = (Math.PI * 2) - normalizedRot;
+            const segmentAngle = (Math.PI * 2) / 15;
+            const winningIdx = Math.floor(invertedRot / segmentAngle) % 15;
+
+            const winNumber = rouletteState.numbers[winningIdx];
+            const isRed = (winningIdx !== 0 && winningIdx % 2 !== 0);
+            const isBlack = (winningIdx !== 0 && winningIdx % 2 === 0);
+
+            let win = false;
+            let winMultiplier = 0;
+
+            if (state.roulette.betType === 'red' && isRed) {
+                win = true;
+                winMultiplier = 2;
+            } else if (state.roulette.betType === 'black' && isBlack) {
+                win = true;
+                winMultiplier = 2;
+            } else if (state.roulette.betType === 'num' && winNumber === state.roulette.targetNum) {
+                win = true;
+                winMultiplier = 14;
+            }
+
+            const winColorText = winningIdx === 0 ? 'GREEN 0' : (isRed ? 'RED' : 'BLACK');
+            rouletteStatusText.text = `LANDED ON: ${winNumber} (${winColorText})`;
+
+            if (win) {
+                const payout = state.roulette.bet * winMultiplier;
+                state.balance += payout;
+                updateBalanceUI();
+                createExplosion(400, 220, 30);
+                triggerToast(`ROULETTE WIN! +${payout.toLocaleString()} LMC`, 'success');
             } else {
-                state.coins -= bet;
-                sfx.lose();
-                document.getElementById('slot-status').innerText = "꽝! 다음 판을 돌려보세요.";
-                showModal("슬롯 꽝", `꽝입니다! [${s1} ${s2} ${s3}] 일치하는 심볼이 없습니다. -${formatNumber(bet)} 코인!`, "skull", "bg-rose-500/10 text-rose-500 border border-rose-500/20");
+                triggerToast(I18N[state.lang].lose, 'error');
             }
-            updateUI();
         }
 
-        // Portfolio summary rendering
-        function updatePortfolioTab(netWorth) {
-            document.getElementById('port-cash').innerText = `${formatNumber(state.coins)} 코인`;
+
+        // ==========================================
+        // 3. VIDEO POKER GAME LOGIC
+        // ==========================================
+        let vpState = null;
+        let vpCardSprites = [];
+        let vpStatusText;
+
+        function setupVideoPokerScene() {
+            state.videopoker.stage = 'deal';
+            state.videopoker.held = [false, false, false, false, false];
+            vpCardSprites = [];
+
+            const felt = new PIXI.Graphics();
+            felt.beginFill(0x131524);
+            felt.drawRect(0, 0, 800, 450);
+            felt.endFill();
+            activeScene.addChild(felt);
+
+            const scoreStyle = new PIXI.TextStyle({
+                fontFamily: 'Orbitron',
+                fontSize: 13,
+                fontWeight: '900',
+                fill: '#a855f7'
+            });
+            vpStatusText = new PIXI.Text('JACKS OR BETTER - PLACE BET & DEAL', scoreStyle);
+            vpStatusText.anchor.set(0.5);
+            vpStatusText.x = 400;
+            vpStatusText.y = 50;
+            activeScene.addChild(vpStatusText);
+
+            for (let i = 0; i < 5; i++) {
+                const placeholder = new PIXI.Graphics();
+                placeholder.lineStyle(2, 0x3b4252, 1);
+                placeholder.beginFill(0x0c1020);
+                placeholder.drawRoundedRect(100 + i * 125, 150, 100, 150, 8);
+                placeholder.endFill();
+                activeScene.addChild(placeholder);
+            }
+
+            resetVpControls();
+        }
+
+        function resetVpControls() {
+            document.getElementById('vpPlayBtn').innerText = I18N[state.lang].deal;
+            for (let i = 0; i < 5; i++) {
+                const btn = document.getElementById(`vpHold${i}`);
+                btn.className = "px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-[10px] font-extrabold text-slate-400 transition-all font-cyber opacity-40 cursor-not-allowed";
+            }
+        }
+
+        function toggleVpHold(idx) {
+            if (state.videopoker.stage !== 'draw') return;
+            state.videopoker.held[idx] = !state.videopoker.held[idx];
             
-            let stockVal = 0;
-            const tbody = document.getElementById('portfolio-table-body');
-            tbody.innerHTML = '';
-
-            for (const symbol in state.stocks) {
-                const s = state.stocks[symbol];
-                if (s.owned > 0) {
-                    const avgPrice = Math.round(s.buyPriceSum / s.owned);
-                    const evaluation = s.owned * s.price;
-                    stockVal += evaluation;
+            const btn = document.getElementById(`vpHold${idx}`);
+            if (state.videopoker.held[idx]) {
+                btn.className = "px-3 py-2 bg-purple-900 border-2 border-purple-400 rounded-xl text-[10px] font-extrabold text-purple-300 transition-all font-cyber";
+                if (vpCardSprites[idx]) {
+                    const heldBanner = new PIXI.Graphics();
+                    heldBanner.name = 'heldBanner';
+                    heldBanner.beginFill(0xa855f7, 0.85);
+                    heldBanner.drawRect(0, 45, 100, 30);
+                    heldBanner.endFill();
                     
-                    const profitRate = (((s.price - avgPrice) / avgPrice) * 100).toFixed(2);
-                    const isPlus = s.price >= avgPrice;
+                    const heldText = new PIXI.Text('HELD', { fontFamily: 'Orbitron', fontSize: 11, fill: '#ffffff', fontWeight: '900' });
+                    heldText.anchor.set(0.5);
+                    heldText.position.set(50, 60);
+                    heldBanner.addChild(heldText);
+                    vpCardSprites[idx].addChild(heldBanner);
+                }
+            } else {
+                btn.className = "px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-[10px] font-extrabold text-slate-300 transition-all font-cyber";
+                if (vpCardSprites[idx]) {
+                    const child = vpCardSprites[idx].getChildByName('heldBanner');
+                    if (child) vpCardSprites[idx].removeChild(child);
+                }
+            }
+        }
 
-                    const row = document.createElement('tr');
-                    row.className = 'border-b border-gray-800/40 hover:bg-slate-900/20';
-                    row.innerHTML = `
-                        <td class="px-6 py-4 font-semibold text-gray-200">${s.name.split(' ')[0]}</td>
-                        <td class="px-6 py-4 font-digital">${formatNumber(s.owned)} 주</td>
-                        <td class="px-6 py-4 font-digital">₩ ${formatNumber(avgPrice)}</td>
-                        <td class="px-6 py-4 font-digital text-amber-400">₩ ${formatNumber(s.price)}</td>
-                        <td class="px-6 py-4 font-digital font-bold text-gray-200">₩ ${formatNumber(evaluation)}</td>
-                        <td class="px-6 py-4 font-digital font-bold ${isPlus ? 'text-emerald-400' : 'text-rose-400'}">
-                            ${isPlus ? '+' : ''}${profitRate}%
-                        </td>
-                    `;
-                    tbody.appendChild(row);
+        function triggerVpAction() {
+            if (state.videopoker.stage === 'deal') {
+                const bet = state.videopoker.bet;
+                if (state.balance < bet) {
+                    triggerToast(I18N[state.lang].insufficient, 'error');
+                    return;
+                }
+                state.balance -= bet;
+                updateBalanceUI();
+
+                vpCardSprites.forEach(sprite => activeScene.removeChild(sprite));
+                vpCardSprites = [];
+
+                state.videopoker.deck = getDeck();
+                state.videopoker.hand = [];
+                state.videopoker.held = [false, false, false, false, false];
+
+                for (let i = 0; i < 5; i++) {
+                    const card = state.videopoker.deck.pop();
+                    state.videopoker.hand.push(card);
+
+                    const sprite = drawCardSprite(card.rank, card.suit, true);
+                    sprite.scale.set(1.33);
+                    sprite.position.set(100 + i * 125, 150);
+                    activeScene.addChild(sprite);
+                    vpCardSprites.push(sprite);
+                }
+
+                state.videopoker.stage = 'draw';
+                document.getElementById('vpPlayBtn').innerText = 'DRAW';
+                vpStatusText.text = 'SELECT WHICH CARDS TO KEEP AND PRESS DRAW';
+
+                for (let i = 0; i < 5; i++) {
+                    const btn = document.getElementById(`vpHold${i}`);
+                    btn.className = "px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-[10px] font-extrabold text-slate-300 transition-all font-cyber";
+                }
+
+            } else {
+                for (let i = 0; i < 5; i++) {
+                    if (!state.videopoker.held[i]) {
+                        const newCard = state.videopoker.deck.pop();
+                        state.videopoker.hand[i] = newCard;
+
+                        activeScene.removeChild(vpCardSprites[i]);
+
+                        const sprite = drawCardSprite(newCard.rank, newCard.suit, true);
+                        sprite.scale.set(1.33);
+                        sprite.position.set(100 + i * 125, 150);
+                        activeScene.addChild(sprite);
+                        vpCardSprites[i] = sprite;
+                    } else {
+                        const banner = vpCardSprites[i].getChildByName('heldBanner');
+                        if (banner) vpCardSprites[i].removeChild(banner);
+                    }
+                }
+
+                evaluateVpHand();
+                state.videopoker.stage = 'deal';
+                resetVpControls();
+            }
+        }
+
+        function evaluateVpHand() {
+            const hand = state.videopoker.hand;
+            
+            const rankValues = { '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14 };
+            const sortedValues = hand.map(c => rankValues[c.rank]).sort((a,b) => a - b);
+            
+            const suitCounts = {};
+            const rankCounts = {};
+            hand.forEach(c => {
+                suitCounts[c.suit] = (suitCounts[c.suit] || 0) + 1;
+                rankCounts[c.rank] = (rankCounts[c.rank] || 0) + 1;
+            });
+
+            const isFlush = Object.values(suitCounts).some(v => v === 5);
+            
+            let isStraight = false;
+            if (new Set(sortedValues).size === 5 && (sortedValues[4] - sortedValues[0] === 4)) {
+                isStraight = true;
+            }
+            if (sortedValues.join(',') === '2,3,4,5,14') {
+                isStraight = true;
+            }
+
+            const counts = Object.values(rankCounts).sort((a,b) => b - a);
+
+            let multiplier = 0;
+            let resultText = "NO HAND";
+
+            if (isFlush && isStraight && sortedValues[0] === 10) {
+                multiplier = 250;
+                resultText = "ROYAL FLUSH!";
+            } else if (isFlush && isStraight) {
+                multiplier = 50;
+                resultText = "STRAIGHT FLUSH!";
+            } else if (counts[0] === 4) {
+                multiplier = 25;
+                resultText = "FOUR OF A KIND!";
+            } else if (counts[0] === 3 && counts[1] === 2) {
+                multiplier = 9;
+                resultText = "FULL HOUSE!";
+            } else if (isFlush) {
+                multiplier = 6;
+                resultText = "FLUSH!";
+            } else if (isStraight) {
+                multiplier = 4;
+                resultText = "STRAIGHT!";
+            } else if (counts[0] === 3) {
+                multiplier = 3;
+                resultText = "THREE OF A KIND!";
+            } else if (counts[0] === 2 && counts[1] === 2) {
+                multiplier = 2;
+                resultText = "TWO PAIR!";
+            } else if (counts[0] === 2) {
+                const pairRank = Object.keys(rankCounts).find(k => rankCounts[k] === 2);
+                if (['J', 'Q', 'K', 'A'].includes(pairRank)) {
+                    multiplier = 1;
+                    resultText = "JACKS OR BETTER!";
                 }
             }
 
-            if (tbody.innerHTML === '') {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="6" class="px-6 py-8 text-center text-gray-500 font-semibold">
-                            현재 보유중인 주식 포트폴리오가 비어있습니다. 거래소에서 매수를 진행해 보세요!
-                        </td>
-                    </tr>
-                `;
+            vpStatusText.text = resultText;
+            if (multiplier > 0) {
+                const payout = state.videopoker.bet * multiplier;
+                state.balance += payout;
+                updateBalanceUI();
+                createExplosion(400, 220, 30);
+                triggerToast(`${resultText} +${payout.toLocaleString()} LMC`, 'success');
+            } else {
+                triggerToast('No hands match.', 'error');
+            }
+        }
+
+
+        // ==========================================
+        // 4. BACCARAT GAME LOGIC
+        // ==========================================
+        let baccaratState = null;
+        let bacTextStatus, bacTextPlayerScore, bacTextBankerScore;
+
+        function setBaccaratBetType(type) {
+            if (state.baccarat.playing) return;
+            state.baccarat.betType = type;
+            
+            document.getElementById('bBtnPlayer').className = (type === 'player') ? "px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white border border-blue-400/40" : "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300";
+            document.getElementById('bBtnBanker').className = (type === 'banker') ? "px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white border border-emerald-400/40" : "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300";
+            document.getElementById('bBtnTie').className = (type === 'tie') ? "px-3 py-1.5 rounded-lg text-xs font-bold bg-yellow-600 text-white border border-yellow-400/40" : "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300";
+        }
+
+        function setupBaccaratScene() {
+            state.baccarat.playing = false;
+            state.baccarat.playerHand = [];
+            state.baccarat.bankerHand = [];
+
+            const felt = new PIXI.Graphics();
+            felt.beginFill(0x064e3b);
+            felt.drawRect(0, 0, 800, 450);
+            felt.endFill();
+            activeScene.addChild(felt);
+
+            const feltStyle = new PIXI.TextStyle({ fontFamily: 'Orbitron', fontSize: 20, fontWeight: '900', fill: '#047857' });
+            const labelPlayer = new PIXI.Text('PLAYER', feltStyle);
+            labelPlayer.anchor.set(0.5); labelPlayer.x = 220; labelPlayer.y = 80;
+            activeScene.addChild(labelPlayer);
+
+            const labelBanker = new PIXI.Text('BANKER', feltStyle);
+            labelBanker.anchor.set(0.5); labelBanker.x = 580; labelBanker.y = 80;
+            activeScene.addChild(labelBanker);
+
+            const scoreStyle = new PIXI.TextStyle({ fontFamily: 'Orbitron', fontSize: 13, fontWeight: '900', fill: '#fde047' });
+            bacTextStatus = new PIXI.Text('CHOOSE SIDE & PRESS DEAL', scoreStyle);
+            bacTextStatus.anchor.set(0.5); bacTextStatus.x = 400; bacTextStatus.y = 230;
+            activeScene.addChild(bacTextStatus);
+
+            bacTextPlayerScore = new PIXI.Text('', scoreStyle);
+            bacTextPlayerScore.anchor.set(0.5); bacTextPlayerScore.x = 220; bacTextPlayerScore.y = 360;
+            activeScene.addChild(bacTextPlayerScore);
+
+            bacTextBankerScore = new PIXI.Text('', scoreStyle);
+            bacTextBankerScore.anchor.set(0.5); bacTextBankerScore.x = 580; bacTextBankerScore.y = 360;
+            activeScene.addChild(bacTextBankerScore);
+
+            document.getElementById('baccaratDealBtn').disabled = false;
+            document.getElementById('baccaratDealBtn').classList.remove('opacity-50');
+        }
+
+        function calculateBaccaratScore(hand) {
+            let total = 0;
+            for (let card of hand) {
+                if (['10', 'J', 'Q', 'K'].includes(card.rank)) {
+                    total += 0;
+                } else if (card.rank === 'A') {
+                    total += 1;
+                } else {
+                    total += parseInt(card.rank, 10);
+                }
+            }
+            return total % 10;
+        }
+
+        function triggerBaccaratDeal() {
+            if (state.baccarat.playing) return;
+            const bet = state.baccarat.bet;
+            if (state.balance < bet) {
+                triggerToast(I18N[state.lang].insufficient, 'error');
+                return;
             }
 
-            document.getElementById('port-stocks').innerText = `${formatNumber(stockVal)} 코인`;
-            
-            // Return calculation
-            const returnPct = (((netWorth - state.initialCoins) / state.initialCoins) * 100).toFixed(1);
-            const isReturnPlus = netWorth >= state.initialCoins;
-            const retEl = document.getElementById('port-return');
-            retEl.innerText = `${isReturnPlus ? '+' : ''}${returnPct}%`;
-            retEl.className = `text-2xl font-black font-digital ${isReturnPlus ? 'text-emerald-400' : 'text-rose-400'}`;
+            state.balance -= bet;
+            updateBalanceUI();
+
+            state.baccarat.playing = true;
+            document.getElementById('baccaratDealBtn').disabled = true;
+            document.getElementById('baccaratDealBtn').classList.add('opacity-50');
+
+            const deck = getDeck();
+            const p1 = deck.pop();
+            const b1 = deck.pop();
+            const p2 = deck.pop();
+            const b2 = deck.pop();
+
+            state.baccarat.playerHand = [p1, p2];
+            state.baccarat.bankerHand = [b1, b2];
+
+            setTimeout(() => { slideCard(p1.rank, p1.suit, 150, 150, true, () => updateBaccaratDisplay()); }, 100);
+            setTimeout(() => { slideCard(b1.rank, b1.suit, 510, 150, true, () => updateBaccaratDisplay()); }, 450);
+            setTimeout(() => { slideCard(p2.rank, p2.suit, 240, 150, true, () => updateBaccaratDisplay()); }, 800);
+            setTimeout(() => { slideCard(b2.rank, b2.suit, 600, 150, true, () => {
+                updateBaccaratDisplay();
+                evaluateBaccaratNatural();
+            }); }, 1150);
         }
 
-        // Safe Custom Modals to replace standard alert()
-        function showModal(title, msg, icon = "info", themeClasses = "bg-slate-800 text-slate-100") {
-            const modal = document.getElementById('custom-modal');
-            const container = document.getElementById('modal-container');
-            
-            document.getElementById('modal-title').innerText = title;
-            document.getElementById('modal-message').innerText = msg;
-            
-            // Icon setup
-            const iconEl = document.getElementById('modal-icon');
-            iconEl.setAttribute('data-lucide', icon);
-            
-            const iconBg = document.getElementById('modal-icon-bg');
-            iconBg.className = `w-12 h-12 rounded-full mx-auto flex items-center justify-center mb-4 ${themeClasses}`;
-            
-            lucide.createIcons();
+        function updateBaccaratDisplay() {
+            const pVal = calculateBaccaratScore(state.baccarat.playerHand);
+            const bVal = calculateBaccaratScore(state.baccarat.bankerHand);
+            bacTextPlayerScore.text = `TOTAL: ${pVal}`;
+            bacTextBankerScore.text = `TOTAL: ${bVal}`;
+        }
 
-            modal.classList.remove('hidden');
+        function evaluateBaccaratNatural() {
+            const pScore = calculateBaccaratScore(state.baccarat.playerHand);
+            const bScore = calculateBaccaratScore(state.baccarat.bankerHand);
+
+            if (pScore >= 8 || bScore >= 8) {
+                resolveBaccaratHand();
+                return;
+            }
+
+            let deck = getDeck();
+            let pDrew = false;
+
+            if (pScore <= 5) {
+                const p3 = deck.pop();
+                state.baccarat.playerHand.push(p3);
+                pDrew = true;
+                setTimeout(() => {
+                    slideCard(p3.rank, p3.suit, 195, 230, true, () => {
+                        updateBaccaratDisplay();
+                        evaluateBaccaratBanker3rd(p3);
+                    });
+                }, 400);
+            } else {
+                evaluateBaccaratBanker3rd(null);
+            }
+        }
+
+        function evaluateBaccaratBanker3rd(player3rdCard) {
+            const bScore = calculateBaccaratScore(state.baccarat.bankerHand);
+            let bDraw = false;
+
+            if (!player3rdCard) {
+                if (bScore <= 5) bDraw = true;
+            } else {
+                const valMap = { 'A': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 0, 'J': 0, 'Q': 0, 'K': 0 };
+                const p3Val = valMap[player3rdCard.rank];
+
+                if (bScore <= 2) bDraw = true;
+                else if (bScore === 3 && p3Val !== 8) bDraw = true;
+                else if (bScore === 4 && [2, 3, 4, 5, 6, 7].includes(p3Val)) bDraw = true;
+                else if (bScore === 5 && [4, 5, 6, 7].includes(p3Val)) bDraw = true;
+                else if (bScore === 6 && [6, 7].includes(p3Val)) bDraw = true;
+            }
+
+            if (bDraw) {
+                const deck = getDeck();
+                const b3 = deck.pop();
+                state.baccarat.bankerHand.push(b3);
+                setTimeout(() => {
+                    slideCard(b3.rank, b3.suit, 555, 230, true, () => {
+                        updateBaccaratDisplay();
+                        resolveBaccaratHand();
+                    });
+                }, 400);
+            } else {
+                resolveBaccaratHand();
+            }
+        }
+
+        function resolveBaccaratHand() {
+            const pVal = calculateBaccaratScore(state.baccarat.playerHand);
+            const bVal = calculateBaccaratScore(state.baccarat.bankerHand);
+
+            let winningSide = 'tie';
+            if (pVal > bVal) winningSide = 'player';
+            else if (bVal > pVal) winningSide = 'banker';
+
+            let win = false;
+            let multiplier = 0;
+
+            if (state.baccarat.betType === winningSide) {
+                win = true;
+                if (winningSide === 'player') multiplier = 2.0;
+                else if (winningSide === 'banker') multiplier = 1.95;
+                else if (winningSide === 'tie') multiplier = 9.0;
+            }
+
+            bacTextStatus.text = `WINNER: ${winningSide.toUpperCase()}`;
+
+            if (win) {
+                const payout = Math.floor(state.baccarat.bet * multiplier);
+                state.balance += payout;
+                updateBalanceUI();
+                createExplosion(400, 220, 25);
+                triggerToast(`BACCARAT WIN! +${payout.toLocaleString()} LMC`, 'success');
+            } else {
+                triggerToast('Dealer won this hand.', 'error');
+            }
+
             setTimeout(() => {
-                modal.classList.remove('opacity-0');
-                container.classList.remove('scale-95');
-            }, 10);
+                state.baccarat.playing = false;
+                setupBaccaratScene();
+            }, 4000);
         }
 
-        function closeModal() {
-            const modal = document.getElementById('custom-modal');
-            const container = document.getElementById('modal-container');
-            
-            modal.classList.add('opacity-0');
-            container.classList.add('scale-95');
-            setTimeout(() => {
-                modal.classList.add('hidden');
-            }, 300);
+
+        // ==========================================
+        // 5. HI-LO GAME LOGIC
+        // ==========================================
+        let hiloState = null;
+        let hiloBaseCardSprite = null;
+        let hiloNextCardSprite = null;
+        let hiloStatusText, hiloStreakText;
+
+        function setupHiloScene() {
+            const felt = new PIXI.Graphics();
+            felt.beginFill(0x1a120b);
+            felt.drawRect(0, 0, 800, 450);
+            felt.endFill();
+            activeScene.addChild(felt);
+
+            const scoreStyle = new PIXI.TextStyle({ fontFamily: 'Orbitron', fontSize: 13, fontWeight: '900', fill: '#d97706' });
+            hiloStatusText = new PIXI.Text('PRESS START TO DEAL BASE CARD', scoreStyle);
+            hiloStatusText.anchor.set(0.5); hiloStatusText.x = 400; hiloStatusText.y = 50;
+            activeScene.addChild(hiloStatusText);
+
+            hiloStreakText = new PIXI.Text('', scoreStyle);
+            hiloStreakText.anchor.set(0.5); hiloStreakText.x = 400; hiloStreakText.y = 80;
+            activeScene.addChild(hiloStreakText);
+
+            const basePlaceholder = new PIXI.Graphics();
+            basePlaceholder.lineStyle(2, 0xd97706, 0.4);
+            basePlaceholder.beginFill(0x3d2514);
+            basePlaceholder.drawRoundedRect(220, 150, 100, 150, 8);
+            basePlaceholder.endFill();
+            activeScene.addChild(basePlaceholder);
+
+            const nextPlaceholder = new PIXI.Graphics();
+            nextPlaceholder.lineStyle(2, 0xd97706, 0.4);
+            nextPlaceholder.beginFill(0x3d2514);
+            nextPlaceholder.drawRoundedRect(480, 150, 100, 150, 8);
+            nextPlaceholder.endFill();
+            activeScene.addChild(nextPlaceholder);
+
+            hiloBaseCardSprite = null;
+            hiloNextCardSprite = null;
+
+            resetHiloControls();
         }
+
+        function resetHiloControls() {
+            document.getElementById('hiloBetPanel').classList.remove('hidden');
+            document.getElementById('hiloPlayPanel').classList.add('hidden');
+        }
+
+        function triggerHiloStart() {
+            if (state.hilo.playing) return;
+            const bet = state.hilo.bet;
+            if (state.balance < bet) {
+                triggerToast(I18N[state.lang].insufficient, 'error');
+                return;
+            }
+
+            state.balance -= bet;
+            updateBalanceUI();
+
+            state.hilo.playing = true;
+            state.hilo.deck = getDeck();
+            state.hilo.streak = 0;
+            state.hilo.multiplier = 1.0;
+
+            document.getElementById('hiloBetPanel').classList.add('hidden');
+            document.getElementById('hiloPlayPanel').classList.remove('hidden');
+
+            const card = state.hilo.deck.pop();
+            state.hilo.currentCard = card;
+
+            hiloBaseCardSprite = drawCardSprite(card.rank, card.suit, true);
+            hiloBaseCardSprite.scale.set(1.33);
+            hiloBaseCardSprite.position.set(220, 150);
+            activeScene.addChild(hiloBaseCardSprite);
+
+            hiloStatusText.text = 'GUESS: IS THE NEXT CARD HIGHER OR LOWER?';
+            hiloStreakText.text = `STREAK: 0 | CASHOUT: ${state.hilo.bet} LMC`;
+        }
+
+        function triggerHiloGuess(guess) {
+            if (!state.hilo.playing) return;
+
+            const nextCard = state.hilo.deck.pop();
+            const rankValues = { '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14 };
+
+            const currentVal = rankValues[state.hilo.currentCard.rank];
+            const nextVal = rankValues[nextCard.rank];
+
+            if (hiloNextCardSprite) {
+                activeScene.removeChild(hiloNextCardSprite);
+            }
+
+            hiloNextCardSprite = drawCardSprite(nextCard.rank, nextCard.suit, true);
+            hiloNextCardSprite.scale.set(1.33);
+            hiloNextCardSprite.position.set(480, 150);
+            activeScene.addChild(hiloNextCardSprite);
+
+            let correct = false;
+            let push = (currentVal === nextVal);
+
+            if (!push) {
+                if (guess === 'high' && nextVal > currentVal) correct = true;
+                if (guess === 'low' && nextVal < currentVal) correct = true;
+            }
+
+            if (correct) {
+                state.hilo.streak++;
+                state.hilo.multiplier *= 1.7;
+                const potentialPayout = Math.floor(state.hilo.bet * state.hilo.multiplier);
+
+                triggerToast('CORRECT GUESS!', 'success');
+                hiloStatusText.text = 'PREDICT NEXT TURN OR CASHOUT ANYTIME!';
+                hiloStreakText.text = `STREAK: ${state.hilo.streak} | CASHOUT: ${potentialPayout.toLocaleString()} LMC`;
+
+                setTimeout(() => {
+                    activeScene.removeChild(hiloBaseCardSprite);
+                    hiloBaseCardSprite = drawCardSprite(nextCard.rank, nextCard.suit, true);
+                    hiloBaseCardSprite.scale.set(1.33);
+                    hiloBaseCardSprite.position.set(220, 150);
+                    activeScene.addChild(hiloBaseCardSprite);
+
+                    activeScene.removeChild(hiloNextCardSprite);
+                    hiloNextCardSprite = null;
+                    state.hilo.currentCard = nextCard;
+                }, 1200);
+
+            } else if (push) {
+                triggerToast('PUSH (TIE VALUE) - PLAY AGAIN', 'info');
+            } else {
+                triggerToast('WRONG GUESS! GAME OVER', 'error');
+                state.hilo.playing = false;
+                setTimeout(() => { setupHiloScene(); }, 3000);
+            }
+        }
+
+        function triggerHiloCashout() {
+            if (!state.hilo.playing || state.hilo.streak === 0) return;
+
+            const payoff = Math.floor(state.hilo.bet * state.hilo.multiplier);
+            state.balance += payoff;
+            updateBalanceUI();
+
+            createExplosion(400, 220, 30);
+            triggerToast(`CASHOUT SUCCESS! +${payoff.toLocaleString()} LMC`, 'success');
+
+            state.hilo.playing = false;
+            setupHiloScene();
+        }
+
+
+        // ==========================================
+        // 6. DICE GAME LOGIC
+        // ==========================================
+        let diceState = null;
+        let dice1Container, dice2Container, diceStatusText;
+
+        function setDiceBetType(type) {
+            if (diceState && diceState.rolling) return;
+            state.dice.betType = type;
+
+            document.getElementById('dBtnUnder').className = (type === 'under') ? "px-3 py-1.5 rounded-lg text-xs font-bold bg-cyan-600 text-white" : "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300";
+            document.getElementById('dBtnOver').className = (type === 'over') ? "px-3 py-1.5 rounded-lg text-xs font-bold bg-cyan-600 text-white" : "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300";
+            document.getElementById('dBtnExact').className = (type === 'exact') ? "px-3 py-1.5 rounded-lg text-xs font-bold bg-cyan-600 text-white" : "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-300";
+        }
+
+        function setupDiceScene() {
+            diceState = {
+                rolling: false,
+                rollTimer: 0,
+                val1: 1,
+                val2: 1
+            };
+
+            const bg = new PIXI.Graphics();
+            bg.beginFill(0x021c24);
+            bg.drawRect(0, 0, 800, 450);
+            bg.endFill();
+            activeScene.addChild(bg);
+
+            const scoreStyle = new PIXI.TextStyle({ fontFamily: 'Orbitron', fontSize: 13, fontWeight: '900', fill: '#06b6d4' });
+            diceStatusText = new PIXI.Text('PREDICT & ROLL', scoreStyle);
+            diceStatusText.anchor.set(0.5); diceStatusText.x = 400; diceStatusText.y = 80;
+            activeScene.addChild(diceStatusText);
+
+            dice1Container = new PIXI.Container();
+            dice1Container.position.set(250, 220);
+            activeScene.addChild(dice1Container);
+
+            dice2Container = new PIXI.Container();
+            dice2Container.position.set(550, 220);
+            activeScene.addChild(dice2Container);
+
+            drawDiceOnCanvas(1, 1);
+            drawDiceOnCanvas(2, 1);
+        }
+
+        function drawDiceOnCanvas(diceId, value) {
+            const container = (diceId === 1) ? dice1Container : dice2Container;
+            while (container.children.length > 0) {
+                container.removeChildAt(0);
+            }
+
+            const box = new PIXI.Graphics();
+            box.lineStyle(5, 0x06b6d4, 1);
+            box.beginFill(0x01161e);
+            box.drawRoundedRect(-60, -60, 120, 120, 16);
+            box.endFill();
+            container.addChild(box);
+
+            const dotCol = 0x06b6d4;
+            const dots = new PIXI.Graphics();
+            dots.beginFill(dotCol);
+
+            const r = 8;
+            if (value === 1) {
+                dots.drawCircle(0, 0, r);
+            } else if (value === 2) {
+                dots.drawCircle(-30, -30, r);
+                dots.drawCircle(30, 30, r);
+            } else if (value === 3) {
+                dots.drawCircle(-30, -30, r);
+                dots.drawCircle(0, 0, r);
+                dots.drawCircle(30, 30, r);
+            } else if (value === 4) {
+                dots.drawCircle(-30, -30, r);
+                dots.drawCircle(30, -30, r);
+                dots.drawCircle(-30, 30, r);
+                dots.drawCircle(30, 30, r);
+            } else if (value === 5) {
+                dots.drawCircle(-30, -30, r);
+                dots.drawCircle(30, -30, r);
+                dots.drawCircle(0, 0, r);
+                dots.drawCircle(-30, 30, r);
+                dots.drawCircle(30, 30, r);
+            } else if (value === 6) {
+                dots.drawCircle(-30, -30, r);
+                dots.drawCircle(30, -30, r);
+                dots.drawCircle(-30, 0, r);
+                dots.drawCircle(30, 0, r);
+                dots.drawCircle(-30, 30, r);
+                dots.drawCircle(30, 30, r);
+            }
+
+            dots.endFill();
+            container.addChild(dots);
+        }
+
+        function triggerDiceRoll() {
+            if (diceState.rolling) return;
+            const bet = state.dice.bet;
+            if (state.balance < bet) {
+                triggerToast(I18N[state.lang].insufficient, 'error');
+                return;
+            }
+
+            state.balance -= bet;
+            updateBalanceUI();
+
+            diceState.rolling = true;
+            diceState.rollTimer = 0;
+            diceStatusText.text = 'ROLLING...';
+
+            document.getElementById('diceRollBtn').disabled = true;
+            document.getElementById('diceRollBtn').classList.add('opacity-50');
+
+            diceState.val1 = Math.floor(Math.random() * 6) + 1;
+            diceState.val2 = Math.floor(Math.random() * 6) + 1;
+        }
+
+        function evaluateDicePayout() {
+            const d1 = diceState.val1;
+            const d2 = diceState.val2;
+            const sum = d1 + d2;
+
+            drawDiceOnCanvas(1, d1);
+            drawDiceOnCanvas(2, d2);
+
+            let win = false;
+            let multiplier = 0;
+
+            if (state.dice.betType === 'under' && sum < 7) {
+                win = true;
+                multiplier = 2.0;
+            } else if (state.dice.betType === 'over' && sum > 7) {
+                win = true;
+                multiplier = 2.0;
+            } else if (state.dice.betType === 'exact' && sum === 7) {
+                win = true;
+                multiplier = 5.0;
+            }
+
+            diceStatusText.text = `ROLLED SUM: ${sum} (${d1} + ${d2})`;
+
+            if (win) {
+                const payout = state.dice.bet * multiplier;
+                state.balance += payout;
+                updateBalanceUI();
+                createExplosion(400, 220, 25);
+                triggerToast(`DICE WIN! +${payout.toLocaleString()} LMC`, 'success');
+            } else {
+                triggerToast(I18N[state.lang].lose, 'error');
+            }
+        }
+
+        // Global Load event
+        window.onload = function() {
+            changeLanguage(state.lang);
+            updateBalanceUI();
+        };
     </script>
 </body>
 </html>
